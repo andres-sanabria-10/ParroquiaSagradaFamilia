@@ -2,34 +2,154 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Church, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useRouter } from "next/navigation"
 
 export default function RegisterPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    phone: "",
-  })
+  const router = useRouter()
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }))
+  // Paso 1: email
+  const [email, setEmail] = useState("")
+
+  // Paso 2: código
+  const [verificationCode, setVerificationCode] = useState("")
+
+  // Paso 3: datos
+  const [name, setName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [birthdate, setBirthdate] = useState("")
+  const [docNumber, setDocNumber] = useState("")
+  const [docType, setDocType] = useState<string>("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+
+  // Tipos de documento
+  const [documentTypes, setDocumentTypes] = useState<Array<{ _id: string; name: string }>>([])
+
+  useEffect(() => {
+    const fetchDocs = async () => {
+      try {
+        const res = await fetch("https://api-parroquia.onrender.com/documentType/", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        })
+        if (!res.ok) throw new Error("Error al cargar tipos de documento")
+        const data = await res.json()
+        setDocumentTypes(data?.data || [])
+      } catch (e) {
+        // Silenciar error y dejar selector vacío
+        setDocumentTypes([])
+      }
+    }
+    fetchDocs()
+  }, [])
+
+  const canGoNextFromStep1 = useMemo(() => {
+    if (!email) return false
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }, [email])
+
+  const handleVerifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canGoNextFromStep1) return
+    setError(null)
+    setLoading(true)
+    try {
+      const res = await fetch("https://api-parroquia.onrender.com/auth/verify-Email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mail: email }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        // Errores conocidos del backend
+        if (data?.error === "EMAIL_EXISTS") throw new Error("Este correo ya está registrado.")
+        if (data?.error === "INVALID_EMAIL") throw new Error("El correo electrónico no es válido.")
+        throw new Error(data?.error || "No se pudo enviar el código")
+      }
+      setStep(2)
+    } catch (err: any) {
+      setError(err?.message || "Error inesperado")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Aquí iría la lógica de registro
-    console.log("Registro:", formData)
+    setError(null)
+    if (!verificationCode) {
+      setError("Ingrese el código de verificación")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("https://api-parroquia.onrender.com/auth/verify-Code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mail: email, verificationCode }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || "Código inválido o expirado")
+      setStep(3)
+    } catch (err: any) {
+      setError(err?.message || "Error inesperado")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    if (!name || !lastName || !birthdate || !docNumber || !docType || !email || !password) {
+      setError("Por favor, complete todos los campos")
+      return
+    }
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden")
+      return
+    }
+    setLoading(true)
+    try {
+      const payload = {
+        name,
+        lastName,
+        birthdate,
+        documentNumber: docNumber,
+        typeDocument: docType, // backend espera el _id
+        mail: email,
+        password,
+        role: "Usuario",
+      }
+      const res = await fetch("https://api-parroquia.onrender.com/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || "No se pudo registrar")
+      router.replace("/login")
+    } catch (err: any) {
+      // Mensaje claro cuando doc existente
+      const message = err?.message?.toLowerCase()?.includes("document")
+        ? "El número de documento ya existe"
+        : err?.message || "Error inesperado"
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -56,76 +176,118 @@ export default function RegisterPage() {
             <CardDescription>Únete a nuestra comunidad parroquial</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nombre completo</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  type="text"
-                  placeholder="Tu nombre completo"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
+            {step === 1 && (
+              <form onSubmit={handleVerifyEmail} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Correo electrónico</Label>
                 <Input
                   id="email"
-                  name="email"
                   type="email"
                   placeholder="tu@email.com"
-                  value={formData.email}
-                  onChange={handleChange}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
 
+                {error && <p className="text-sm text-red-500">{error}</p>}
+                <Button disabled={!canGoNextFromStep1 || loading} type="submit" className="w-full">
+                  {loading ? "Enviando código..." : "Enviar código"}
+                </Button>
+              </form>
+            )}
+
+            {step === 2 && (
+              <form onSubmit={handleVerifyCode} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="phone">Teléfono</Label>
+                  <Label htmlFor="verificationCode">Código de verificación</Label>
                 <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  placeholder="Tu número de teléfono"
-                  value={formData.phone}
-                  onChange={handleChange}
+                    id="verificationCode"
+                    type="text"
+                    placeholder="Ingresa el código recibido"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
                   required
                 />
               </div>
+                {error && <p className="text-sm text-red-500">{error}</p>}
+                <div className="flex gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setStep(1)} disabled={loading}>
+                    Atrás
+                  </Button>
+                  <Button type="submit" className="flex-1" disabled={loading}>
+                    {loading ? "Verificando..." : "Verificar"}
+                  </Button>
+                </div>
+              </form>
+            )}
 
+            {step === 3 && (
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nombres</Label>
+                    <Input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Apellidos</Label>
+                    <Input id="lastName" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="birthdate">Fecha de nacimiento</Label>
+                    <Input id="birthdate" type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="docType">Tipo de documento</Label>
+                    <Select value={docType} onValueChange={setDocType}>
+                      <SelectTrigger id="docType">
+                        <SelectValue placeholder="Selecciona un tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {documentTypes.map((dt) => (
+                          <SelectItem key={dt._id} value={dt._id}>{dt.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="docNumber">Número de documento</Label>
+                    <Input id="docNumber" type="text" value={docNumber} onChange={(e) => setDocNumber(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emailFinal">Correo</Label>
+                    <Input id="emailFinal" type="email" value={email} disabled />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                />
+                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                />
+                    <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                  </div>
               </div>
 
-              <Button type="submit" className="w-full">
-                Crear Cuenta
+                {error && <p className="text-sm text-red-500">{error}</p>}
+                <div className="flex gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setStep(2)} disabled={loading}>
+                    Atrás
+                  </Button>
+                  <Button type="submit" className="flex-1" disabled={loading}>
+                    {loading ? "Creando..." : "Crear cuenta"}
               </Button>
+                </div>
             </form>
+            )}
 
             <div className="mt-4 text-center">
               <p className="text-sm text-muted-foreground">

@@ -16,18 +16,55 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mail: email, password }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.message || "Error al iniciar sesión")
+      }
+      const data = await res.json()
+      const roleFromServer: string | undefined = data?.role
 
-    // Simulación de login - redirigir según el rol
-    if (role === "parroco") {
-      router.push("/dashboard/parroco")
-    } else if (role === "secretaria") {
-      router.push("/dashboard/secretaria")
-    } else if (role === "feligres") {
-      router.push("/dashboard/feligres")
+      const redirect = new URLSearchParams(window.location.search).get("redirect")
+
+      if (redirect) {
+        router.replace(redirect)
+        return
+      }
+
+      switch ((roleFromServer || role).toLowerCase()) {
+        case "parroco":
+          router.replace("/dashboard/parroco")
+          break
+        case "secretaria":
+          router.replace("/dashboard/secretaria")
+          break
+        case "feligres":
+          router.replace("/dashboard/feligres")
+          break
+        case "admin":
+        case "superadmin":
+          router.replace("/")
+          break
+        default:
+          router.replace("/")
+      }
+    } catch (err: any) {
+      setError(err?.message || "Error inesperado")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -79,23 +116,12 @@ export default function LoginPage() {
                   required
                 />
               </div>
+              {error && (
+                <p className="text-sm text-red-500" role="alert">{error}</p>
+              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="role">Rol</Label>
-                <Select value={role} onValueChange={setRole} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona tu rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="feligres">Feligrés</SelectItem>
-                    <SelectItem value="secretaria">Secretaria</SelectItem>
-                    <SelectItem value="parroco">Párroco</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button type="submit" className="w-full" disabled={!role}>
-                Iniciar Sesión
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Ingresando..." : "Iniciar Sesión"}
               </Button>
             </form>
 
