@@ -34,7 +34,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
 
   // Tipos de documento
-  const [documentTypes, setDocumentTypes] = useState<Array<{ _id: string; name: string }>>([])
+  const [documentTypes, setDocumentTypes] = useState<Array<{ _id: string; document_type_name: string }>>([])
 
   useEffect(() => {
     const fetchDocs = async () => {
@@ -248,7 +248,7 @@ export default function RegisterPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {documentTypes.map((dt) => (
-                          <SelectItem key={dt._id} value={dt._id}>{dt.name}</SelectItem>
+                          <SelectItem key={dt._id} value={dt._id}>{dt.document_type_name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
