@@ -1,17 +1,13 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import { toast } from "sonner"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { ClipboardList, Calendar, History } from "lucide-react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { ClipboardList, Calendar, History, Loader2, BookOpen, Heart, Cross } from "lucide-react"
 
+// --- Sidebar Items (sin cambios) ---
 const sidebarItems = [
   {
     title: "Solicitud de Partida",
@@ -30,181 +26,135 @@ const sidebarItems = [
   },
 ]
 
+// 1. Datos para las tarjetas. Fácil de modificar o añadir más en el futuro.
+const partidaTypes = [
+  {
+    title: "Bautismo",
+    description: "Solicita una copia de tu partida de Bautismo.",
+    type: "Baptism", // Este es el valor que espera tu API
+    icon: BookOpen,
+  },
+  {
+    title: "Confirmación",
+    description: "Solicita una copia de tu partida de Confirmación.",
+    type: "Confirmation",
+    icon: Cross,
+  },
+  {
+    title: "Matrimonio",
+    description: "Solicita una copia de tu partida de Matrimonio.",
+    type: "Marriage",
+    icon: Heart,
+  },
+]
+
 export default function SolicitudPartidaFeligres() {
-  const [formData, setFormData] = useState({
-    tipoPartida: "",
-    nombreCompleto: "",
-    fechaNacimiento: "",
-    lugarNacimiento: "",
-    nombrePadre: "",
-    nombreMadre: "",
-    fechaSacramento: "",
-    motivoSolicitud: "",
-    observaciones: "",
-  })
+  // 2. Estado para manejar la carga de cada botón individualmente.
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
 
-  const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+  // 3. La función clave que se comunica con tu backend.
+  const handleRequestDeparture = async (departureType: string) => {
+    console.log("Botón presionado. Solicitando partida:", departureType);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Solicitud de partida feligrés:", formData)
-    // Aquí iría la lógica para enviar la solicitud
+  
+    // Activa el estado de carga para el botón específico que fue presionado
+    setLoadingStates((prev) => ({ ...prev, [departureType]: true }))
+
+    const token = localStorage.getItem("tokenSession")
+
+    if (!token) {
+      toast.error("Error de autenticación.", {
+        description: "Por favor, inicia sesión de nuevo para continuar.",
+      })
+      setLoadingStates((prev) => ({ ...prev, [departureType]: false }))
+      return
+    }
+
+    try {
+      const response = await fetch("https://api-parroquia.onrender.com/requestDeparture/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ departureType: departureType }), // Enviamos solo el tipo de partida
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        // El error "No se encontró una partida para este usuario" es común, lo personalizamos.
+        if (errorData.error.includes("No se encontró una partida")) {
+          throw new Error(`No tienes una partida de ${departureType.toLowerCase()} registrada en el sistema.`)
+        }
+        throw new Error(errorData.error || "Ocurrió un error en el servidor.")
+      }
+
+      await response.json()
+
+      toast.success(`Solicitud de ${departureType.toLowerCase()} enviada.`, {
+        description: "Recibirás el documento en tu correo una vez sea procesado.",
+        duration: 6000,
+      })
+    } catch (error: any) {
+      console.error("Error en la solicitud:", error)
+      toast.error("No se pudo enviar la solicitud", {
+        description: error.message,
+      })
+    } finally {
+      // Desactiva el estado de carga para el botón, ya sea que la petición haya sido exitosa o fallida.
+      setLoadingStates((prev) => ({ ...prev, [departureType]: false }))
+    }
   }
 
   return (
     <div className="flex h-screen bg-background">
       <Sidebar items={sidebarItems} userRole="feligrés" />
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground">Solicitud de Partida</h1>
-            <p className="text-muted-foreground">Solicita una copia de tu partida sacramental</p>
-          </div>
+      <main className="flex-1 overflow-y-auto p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">Solicitud de Partidas</h1>
+          <p className="text-muted-foreground">Selecciona el tipo de partida sacramental que deseas solicitar.</p>
+        </div>
 
-          <Card className="max-w-4xl">
-            <CardHeader>
-              <CardTitle>Nueva Solicitud de Partida</CardTitle>
-              <CardDescription>Complete todos los datos requeridos para procesar su solicitud</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="tipoPartida">Tipo de Partida</Label>
-                    <Select value={formData.tipoPartida} onValueChange={(value) => handleChange("tipoPartida", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="bautismo">Bautismo</SelectItem>
-                        <SelectItem value="confirmacion">Confirmación</SelectItem>
-                        <SelectItem value="matrimonio">Matrimonio</SelectItem>
-                        <SelectItem value="primera-comunion">Primera Comunión</SelectItem>
-                      </SelectContent>
-                    </Select>
+        {/* 4. Contenedor para las tarjetas, usando una grilla responsive */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {partidaTypes.map((partida) => {
+            const isLoading = loadingStates[partida.type] || false
+            return (
+              <Card key={partida.type} className="flex flex-col">
+                <CardHeader className="flex-row items-center gap-4">
+                  <partida.icon className="h-10 w-10 text-primary" />
+                  <div>
+                    <CardTitle>{partida.title}</CardTitle>
+                    <CardDescription>{partida.description}</CardDescription>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="nombreCompleto">Nombre Completo</Label>
-                    <Input
-                      id="nombreCompleto"
-                      value={formData.nombreCompleto}
-                      onChange={(e) => handleChange("nombreCompleto", e.target.value)}
-                      placeholder="Su nombre completo"
-                      required
-                    />
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                    <p>
+                      Al solicitar, se buscará tu partida registrada en nuestro sistema y se generará una solicitud para
+                      enviarte una copia digital.
+                    </p>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fechaNacimiento">Fecha de Nacimiento</Label>
-                    <Input
-                      id="fechaNacimiento"
-                      type="date"
-                      value={formData.fechaNacimiento}
-                      onChange={(e) => handleChange("fechaNacimiento", e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lugarNacimiento">Lugar de Nacimiento</Label>
-                    <Input
-                      id="lugarNacimiento"
-                      value={formData.lugarNacimiento}
-                      onChange={(e) => handleChange("lugarNacimiento", e.target.value)}
-                      placeholder="Ciudad, País"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="nombrePadre">Nombre del Padre</Label>
-                    <Input
-                      id="nombrePadre"
-                      value={formData.nombrePadre}
-                      onChange={(e) => handleChange("nombrePadre", e.target.value)}
-                      placeholder="Nombre completo del padre"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="nombreMadre">Nombre de la Madre</Label>
-                    <Input
-                      id="nombreMadre"
-                      value={formData.nombreMadre}
-                      onChange={(e) => handleChange("nombreMadre", e.target.value)}
-                      placeholder="Nombre completo de la madre"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fechaSacramento">Fecha Aproximada del Sacramento</Label>
-                    <Input
-                      id="fechaSacramento"
-                      type="date"
-                      value={formData.fechaSacramento}
-                      onChange={(e) => handleChange("fechaSacramento", e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="motivoSolicitud">Motivo de la Solicitud</Label>
-                    <Select
-                      value={formData.motivoSolicitud}
-                      onValueChange={(value) => handleChange("motivoSolicitud", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar motivo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="tramites-personales">Trámites Personales</SelectItem>
-                        <SelectItem value="matrimonio">Para Matrimonio</SelectItem>
-                        <SelectItem value="confirmacion">Para Confirmación</SelectItem>
-                        <SelectItem value="otros">Otros</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="observaciones">Observaciones</Label>
-                  <Textarea
-                    id="observaciones"
-                    value={formData.observaciones}
-                    onChange={(e) => handleChange("observaciones", e.target.value)}
-                    placeholder="Información adicional que pueda ayudar a localizar el registro..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="bg-muted p-4 rounded-lg">
-                  <h4 className="font-semibold mb-2">Información Importante:</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• El tiempo de procesamiento es de 3-5 días hábiles</li>
-                    <li>• Recibirá una notificación cuando su partida esté lista</li>
-                    <li>• Debe presentar identificación al momento de recoger el documento</li>
-                    <li>• El costo de la partida es de $10.000 pesos</li>
-                  </ul>
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <Button type="submit" className="flex-1">
-                    Enviar Solicitud
+                </CardContent>
+                <CardFooter>
+                  <Button
+                    className="w-full"
+                    onClick={() => handleRequestDeparture(partida.type)}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      "Solicitar Partida"
+                    )}
                   </Button>
-                  <Button type="button" variant="outline" className="flex-1 bg-transparent">
-                    Cancelar
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                </CardFooter>
+              </Card>
+            )
+          })}
         </div>
       </main>
     </div>
