@@ -6,8 +6,8 @@ import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ClipboardList, Calendar, History, Loader2, BookOpen, Heart, Cross } from "lucide-react"
+import { useRouter } from "next/navigation"
 
-// --- Sidebar Items (sin cambios) ---
 const sidebarItems = [
   {
     title: "Solicitud de Partida",
@@ -26,12 +26,11 @@ const sidebarItems = [
   },
 ]
 
-// 1. Datos para las tarjetas. Fácil de modificar o añadir más en el futuro.
 const partidaTypes = [
   {
     title: "Bautismo",
     description: "Solicita una copia de tu partida de Bautismo.",
-    type: "Baptism", // Este es el valor que espera tu API
+    type: "Baptism",
     icon: BookOpen,
   },
   {
@@ -48,45 +47,43 @@ const partidaTypes = [
   },
 ]
 
-
 export default function SolicitudPartidaFeligres() {
-  // 2. Estado para manejar la carga de cada botón individualmente.
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
+  const router = useRouter()
 
-  // 3. La función clave que se comunica con tu backend.
+  // ✅ ACTUALIZADO: Usa cookies automáticamente
   const handleRequestDeparture = async (departureType: string) => {
-    console.log("Botón presionado. Solicitando partida:", departureType);
+    console.log("Botón presionado. Solicitando partida:", departureType)
 
-  
-    // Activa el estado de carga para el botón específico que fue presionado
     setLoadingStates((prev) => ({ ...prev, [departureType]: true }))
 
-    const token = localStorage.getItem("tokenSession")
-
-    if (!token) {
-      toast.error("Error de autenticación.", {
-        description: "Por favor, inicia sesión de nuevo para continuar.",
-      })
-      setLoadingStates((prev) => ({ ...prev, [departureType]: false }))
-      return
-    }
-
     try {
-      const response = await fetch("https://api-parroquia.onrender.com/requestDeparture/", {
+      const response = await fetch("http://localhost:5000/requestDeparture/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ departureType: departureType }), // Enviamos solo el tipo de partida
+        credentials: 'include', // 👈 Envía cookies automáticamente
+        body: JSON.stringify({ departureType: departureType }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        // El error "No se encontró una partida para este usuario" es común, lo personalizamos.
-        if (errorData.error.includes("No se encontró una partida")) {
+        
+        // Si el usuario no está autenticado
+        if (response.status === 401) {
+          toast.error("Sesión expirada", {
+            description: "Por favor, inicia sesión de nuevo.",
+          })
+          router.push("/login")
+          return
+        }
+
+        // Error de partida no encontrada
+        if (errorData.error?.includes("No se encontró una partida")) {
           throw new Error(`No tienes una partida de ${departureType.toLowerCase()} registrada en el sistema.`)
         }
+        
         throw new Error(errorData.error || "Ocurrió un error en el servidor.")
       }
 
@@ -102,7 +99,6 @@ export default function SolicitudPartidaFeligres() {
         description: error.message,
       })
     } finally {
-      // Desactiva el estado de carga para el botón, ya sea que la petición haya sido exitosa o fallida.
       setLoadingStates((prev) => ({ ...prev, [departureType]: false }))
     }
   }
@@ -116,7 +112,6 @@ export default function SolicitudPartidaFeligres() {
           <p className="text-muted-foreground">Selecciona el tipo de partida sacramental que deseas solicitar.</p>
         </div>
 
-        {/* 4. Contenedor para las tarjetas, usando una grilla responsive */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {partidaTypes.map((partida) => {
             const isLoading = loadingStates[partida.type] || false

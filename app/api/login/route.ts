@@ -1,71 +1,82 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { mail, password } = body || {}
+    const { mail, password } = body
 
-    if (!mail || !password) {
-      return NextResponse.json({ message: "Correo y contraseña son requeridos" }, { status: 400 })
-    }
+    console.log("🔐 Intentando login para:", mail)
 
+    // Llamar al backend - SIN credentials porque estamos en el servidor
     const response = await fetch("https://api-parroquia.onrender.com/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ mail, password }),
     })
 
+    console.log("📡 Status del backend:", response.status)
+
     if (!response.ok) {
-      let message = "Error en autenticación"
-      try {
-        const errorData = await response.json()
-        message = errorData?.message || message
-      } catch {}
-      return NextResponse.json({ message }, { status: response.status })
+      const errorData = await response.json().catch(() => ({}))
+      console.error("❌ Error del backend:", errorData)
+      return NextResponse.json(
+        { message: errorData.message || errorData.error || "Error al iniciar sesión" },
+        { status: response.status }
+      )
     }
 
     const data = await response.json()
+    console.log("✅ Respuesta del backend:", data)
 
-    const token: string | undefined = data?.tokenSession
-    const roleRaw: string | undefined = data?.data?.role
-
-    if (!token || !roleRaw) {
-      return NextResponse.json({ message: "Respuesta inválida del servidor" }, { status: 500 })
+    // Verificar estructura de la respuesta
+    if (!data || !data.data || !data.data.role) {
+      console.error("⚠️ Estructura de respuesta inesperada:", data)
+      return NextResponse.json(
+        { message: "Respuesta inválida del servidor" },
+        { status: 500 }
+      )
     }
 
-    // Normalize backend roles to app roles
-    const normalizedRole = (() => {
-      const r = String(roleRaw).toLowerCase()
-      if (r === "usuario") return "feligres"
-      if (r === "admin") return "secretaria"
-      if (r === "superadmin") return "parroco"
-      if (["parroco", "secretaria", "feligres"].includes(r)) return r
-      return "feligres"
-    })()
+    // Extraer cookies del backend si existen
+    const backendCookies = response.headers.get('set-cookie')
+    console.log("🍪 Cookies del backend:", backendCookies)
 
-    const res = NextResponse.json({ message: "ok", role: normalizedRole })
+    // Crear respuesta exitosa
+    const nextResponse = NextResponse.json({
+      message: "Login exitoso",
+      role: data.data.role,
+      user: data.data,
+    }, { status: 200 })
 
-    // Set secure, httpOnly cookies
-    const isProd = process.env.NODE_ENV === "production"
-    res.cookies.set("tokenSession", token, {
-      httpOnly: true,
-      secure: isProd,
+    // Establecer cookie con el rol para navegación
+    nextResponse.cookies.set("userRole", data.data.role, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      maxAge: 3600, // 1 hora
       path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    })
-    res.cookies.set("role", normalizedRole, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
     })
 
-    return res
-  } catch (error) {
-    return NextResponse.json({ message: "Error interno" }, { status: 500 })
+    // Si el backend envió cookies, reenviarlas
+    if (backendCookies) {
+      // Parsear y reenviar cada cookie
+      const cookies = backendCookies.split(',').map(c => c.trim())
+      cookies.forEach(cookie => {
+        nextResponse.headers.append('Set-Cookie', cookie)
+      })
+    }
+
+    console.log("✅ Login exitoso, rol:", data.data.role)
+
+    return nextResponse
+
+  } catch (error: any) {
+    console.error("💥 Error en /api/login:", error)
+    return NextResponse.json(
+      { message: "Error del servidor: " + error.message },
+      { status: 500 }
+    )
   }
 }
-
-

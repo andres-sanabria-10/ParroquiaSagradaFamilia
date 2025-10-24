@@ -1,22 +1,19 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Church, ArrowLeft, X } from "lucide-react"
+import { Church, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [role, setRole] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -35,18 +32,24 @@ export default function LoginPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
+
     try {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ mail: email, password }),
       })
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data?.message || "Error al iniciar sesión")
       }
+
       const data = await res.json()
-      const roleFromServer: string | undefined = data?.role
+      const roleFromServer: string = data?.role
+
+      console.log("✅ Login exitoso, rol recibido:", roleFromServer)
 
       const redirect = new URLSearchParams(window.location.search).get("redirect")
 
@@ -55,50 +58,59 @@ export default function LoginPage() {
         return
       }
 
-      switch ((roleFromServer || role).toLowerCase()) {
-        case "parroco":
+      // ✅ CORREGIDO: Ahora usa toLowerCase() en ambos lados
+      switch (roleFromServer.toLowerCase()) {
+        case "SuperAdmin":
+          console.log("🔄 Redirigiendo a /dashboard/parroco")
           router.replace("/dashboard/parroco")
           break
-        case "secretaria":
+        case "Admin":
+          console.log("🔄 Redirigiendo a /dashboard/secretaria")
           router.replace("/dashboard/secretaria")
           break
-        case "feligres":
+        case "usuario": // ← CORREGIDO: ahora en minúsculas
+          console.log("🔄 Redirigiendo a /dashboard/feligres")
           router.replace("/dashboard/feligres")
           break
-        case "admin":
-        case "superadmin":
+        default:
+          console.log("⚠️ Rol desconocido:", roleFromServer, "- Redirigiendo a /")
           router.replace("/")
           break
-        default:
-          router.replace("/")
       }
+
     } catch (err: any) {
+      console.error("❌ Error en login:", err)
       setError(err?.message || "Error inesperado")
     } finally {
       setLoading(false)
     }
   }
 
-  // Password recovery handlers
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setRecoveryError(null)
+
     if (!recoveryEmail) {
       setRecoveryError("Por favor, ingrese su correo electrónico")
       return
     }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(recoveryEmail)) {
       setRecoveryError("Por favor, ingrese un correo electrónico válido")
       return
     }
+
     setRecoveryLoading(true)
+
     try {
       const res = await fetch("https://api-parroquia.onrender.com/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ mail: recoveryEmail }),
       })
+
       if (!res.ok) {
         if (res.status === 404) {
           throw new Error("El correo electrónico no está registrado")
@@ -106,6 +118,7 @@ export default function LoginPage() {
         const data = await res.json().catch(() => ({}))
         throw new Error(data?.message || "Error al enviar el código")
       }
+
       setRecoveryStep(2)
     } catch (err: any) {
       setRecoveryError(err?.message || "Error inesperado")
@@ -117,19 +130,26 @@ export default function LoginPage() {
   const handleVerifyResetCode = async (e: React.FormEvent) => {
     e.preventDefault()
     setRecoveryError(null)
+
     if (!resetCode) {
       setRecoveryError("Por favor, ingrese el código de verificación")
       return
     }
+
     setRecoveryLoading(true)
+
     try {
       const res = await fetch("https://api-parroquia.onrender.com/auth/verify-ResetCode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ mail: recoveryEmail, resetCode }),
       })
+
       const data = await res.json().catch(() => ({}))
+
       if (!res.ok) throw new Error(data?.message || "Código inválido o expirado")
+
       if (data.message === "Código válido") {
         setRecoveryStep(3)
       } else {
@@ -145,32 +165,39 @@ export default function LoginPage() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setRecoveryError(null)
+
     if (!newPassword || !confirmPassword) {
       setRecoveryError("Por favor, complete todos los campos")
       return
     }
+
     if (newPassword !== confirmPassword) {
       setRecoveryError("Las contraseñas no coinciden")
       return
     }
+
+    if (newPassword.length < 8) {
+      setRecoveryError("La contraseña debe tener al menos 8 caracteres")
+      return
+    }
+
     setRecoveryLoading(true)
+
     try {
       const res = await fetch("https://api-parroquia.onrender.com/auth/change-Password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ mail: recoveryEmail, newPassword }),
       })
+
       const data = await res.json().catch(() => ({}))
+
       if (!res.ok) throw new Error(data?.message || "Error al cambiar la contraseña")
+
       if (data.message?.includes("exitosamente") || data.message?.includes("successfully")) {
         setRecoveryOpen(false)
-        setRecoveryStep(1)
-        setRecoveryEmail("")
-        setResetCode("")
-        setNewPassword("")
-        setConfirmPassword("")
-        setRecoveryError(null)
-        // Show success message or redirect to login
+        resetRecoveryForm()
         alert("Contraseña restablecida exitosamente. Por favor, inicie sesión con su nueva contraseña.")
       } else {
         setRecoveryError(data?.message || "Error al cambiar la contraseña")
@@ -239,6 +266,7 @@ export default function LoginPage() {
                   required
                 />
               </div>
+
               {error && (
                 <p className="text-sm text-red-500" role="alert">{error}</p>
               )}
@@ -275,7 +303,7 @@ export default function LoginPage() {
                         {recoveryStep === 3 && "Ingresa tu nueva contraseña"}
                       </DialogDescription>
                     </DialogHeader>
-                    
+
                     <div className="space-y-4">
                       {recoveryStep === 1 && (
                         <form onSubmit={handleForgotPassword} className="space-y-4">
@@ -333,6 +361,7 @@ export default function LoginPage() {
                               value={newPassword}
                               onChange={(e) => setNewPassword(e.target.value)}
                               required
+                              minLength={8}
                             />
                           </div>
                           <div className="space-y-2">
@@ -344,6 +373,7 @@ export default function LoginPage() {
                               value={confirmPassword}
                               onChange={(e) => setConfirmPassword(e.target.value)}
                               required
+                              minLength={8}
                             />
                           </div>
                           {recoveryError && <p className="text-sm text-red-500">{recoveryError}</p>}
