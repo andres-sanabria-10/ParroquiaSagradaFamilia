@@ -43,13 +43,16 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data?.message || "Error al iniciar sesión")
+        throw new Error(data?.error || data?.message || "Error al iniciar sesión")
       }
 
       const data = await res.json()
-      const roleFromServer: string = data?.role
+      
+      // 👇 CORRECCIÓN: El rol está en data.user.role
+      const roleFromServer: string = data?.user?.role?.toLowerCase() || ""
 
       console.log("✅ Login exitoso, rol recibido:", roleFromServer)
+      console.log("📦 Data completa:", data)
 
       const redirect = new URLSearchParams(window.location.search).get("redirect")
 
@@ -58,17 +61,17 @@ export default function LoginPage() {
         return
       }
 
-      // ✅ CORREGIDO: Ahora usa toLowerCase() en ambos lados
-      switch (roleFromServer.toLowerCase()) {
-        case "SuperAdmin":
+      // Redirigir según el rol de la base de datos
+      switch (roleFromServer) {
+        case "super":
           console.log("🔄 Redirigiendo a /dashboard/parroco")
           router.replace("/dashboard/parroco")
           break
-        case "Admin":
+        case "admin":
           console.log("🔄 Redirigiendo a /dashboard/secretaria")
           router.replace("/dashboard/secretaria")
           break
-        case "usuario": // ← CORREGIDO: ahora en minúsculas
+        case "usuario":
           console.log("🔄 Redirigiendo a /dashboard/feligres")
           router.replace("/dashboard/feligres")
           break
@@ -139,7 +142,7 @@ export default function LoginPage() {
     setRecoveryLoading(true)
 
     try {
-      const res = await fetch("https://api-parroquia.onrender.com/auth/verify-ResetCode", {
+      const res = await fetch("https://api-parroquia.onrender.com/auth/verify-reset-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
@@ -184,11 +187,15 @@ export default function LoginPage() {
     setRecoveryLoading(true)
 
     try {
-      const res = await fetch("https://api-parroquia.onrender.com/auth/change-Password", {
+      const res = await fetch("https://api-parroquia.onrender.com/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
-        body: JSON.stringify({ mail: recoveryEmail, newPassword }),
+        body: JSON.stringify({ 
+          mail: recoveryEmail, 
+          resetCode, // 👈 Agregar el resetCode
+          newPassword 
+        }),
       })
 
       const data = await res.json().catch(() => ({}))

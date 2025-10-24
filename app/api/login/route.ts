@@ -7,7 +7,6 @@ export async function POST(request: NextRequest) {
 
     console.log("🔐 Intentando login para:", mail)
 
-    // Llamar al backend - SIN credentials porque estamos en el servidor
     const response = await fetch("https://api-parroquia.onrender.com/auth/login", {
       method: "POST",
       headers: {
@@ -22,7 +21,7 @@ export async function POST(request: NextRequest) {
       const errorData = await response.json().catch(() => ({}))
       console.error("❌ Error del backend:", errorData)
       return NextResponse.json(
-        { message: errorData.message || errorData.error || "Error al iniciar sesión" },
+        { error: errorData.message || errorData.error || "Error al iniciar sesión" },
         { status: response.status }
       )
     }
@@ -30,52 +29,46 @@ export async function POST(request: NextRequest) {
     const data = await response.json()
     console.log("✅ Respuesta del backend:", data)
 
-    // Verificar estructura de la respuesta
     if (!data || !data.data || !data.data.role) {
       console.error("⚠️ Estructura de respuesta inesperada:", data)
       return NextResponse.json(
-        { message: "Respuesta inválida del servidor" },
+        { error: "Respuesta inválida del servidor" },
         { status: 500 }
       )
     }
 
-    // Extraer cookies del backend si existen
     const backendCookies = response.headers.get('set-cookie')
     console.log("🍪 Cookies del backend:", backendCookies)
 
-    // Crear respuesta exitosa
     const nextResponse = NextResponse.json({
       message: "Login exitoso",
-      role: data.data.role,
-      user: data.data,
+      user: data.data, // 👈 Cambié esto para que coincida con tu componente de login
     }, { status: 200 })
 
-    // Establecer cookie con el rol para navegación
-    nextResponse.cookies.set("userRole", data.data.role, {
-      httpOnly: false,
+    // 👇 CAMBIO IMPORTANTE: Usar "role" en lugar de "userRole"
+    nextResponse.cookies.set("role", data.data.role, {
+      httpOnly: true, // 👈 Se establece como true por seguridad; el middleware puede leerla igualmente.
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 3600, // 1 hora
       path: "/",
     })
 
-    // Si el backend envió cookies, reenviarlas
     if (backendCookies) {
-      // Parsear y reenviar cada cookie
       const cookies = backendCookies.split(',').map(c => c.trim())
       cookies.forEach(cookie => {
         nextResponse.headers.append('Set-Cookie', cookie)
       })
     }
 
-    console.log("✅ Login exitoso, rol:", data.data.role)
+    console.log("✅ Login exitoso, rol establecido:", data.data.role)
 
     return nextResponse
 
   } catch (error: any) {
     console.error("💥 Error en /api/login:", error)
     return NextResponse.json(
-      { message: "Error del servidor: " + error.message },
+      { error: "Error del servidor: " + error.message },
       { status: 500 }
     )
   }

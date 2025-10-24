@@ -1,12 +1,13 @@
 "use client"
 
 import type React from "react"
+import { useState } from "react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Church, LogOut } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 interface SidebarProps {
   items: {
@@ -17,8 +18,49 @@ interface SidebarProps {
   userRole: string
 }
 
+// Mapeo para mostrar nombres amigables
+const roleDisplayNames: Record<string, string> = {
+  "super": "Párroco",
+  "admin": "Secretaria",
+  "usuario": "Feligrés",
+}
+
 export function Sidebar({ items, userRole }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      console.log("🚪 Cerrando sesión...")
+      
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        console.log("✅ Logout exitoso")
+        // Usar window.location para forzar recarga completa y limpiar estado
+        window.location.href = '/login'
+      } else {
+        console.error('⚠️ Error al cerrar sesión:', data)
+        // Redirigir de todos modos
+        window.location.href = '/login'
+      }
+    } catch (error) {
+      console.error('❌ Error al cerrar sesión:', error)
+      // Redirigir de todos modos para limpiar el estado
+      window.location.href = '/login'
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
+  const displayRole = roleDisplayNames[userRole.toLowerCase()] || userRole
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar border-r">
@@ -28,7 +70,7 @@ export function Sidebar({ items, userRole }: SidebarProps) {
         </div>
         <div>
           <h2 className="text-lg font-semibold">Sagrada Familia</h2>
-          <p className="text-sm text-muted-foreground capitalize">{userRole}</p>
+          <p className="text-sm text-muted-foreground capitalize">{displayRole}</p>
         </div>
       </div>
       <nav className="flex-1 p-4">
@@ -56,12 +98,15 @@ export function Sidebar({ items, userRole }: SidebarProps) {
         </ul>
       </nav>
       <div className="p-4 border-t">
-        <Link href="/">
-          <Button variant="outline" className="w-full bg-transparent">
-            <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
-          </Button>
-        </Link>
+        <Button 
+          variant="outline" 
+          className="w-full bg-transparent"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          {isLoggingOut ? 'Cerrando...' : 'Cerrar Sesión'}
+        </Button>
       </div>
     </div>
   )
