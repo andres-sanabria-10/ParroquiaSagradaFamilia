@@ -48,6 +48,7 @@ const partidaTypes = [
   },
 ]
 
+
 export default function SolicitudPartidaFeligres() {
   // 2. Estado para manejar la carga de cada botón individualmente.
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
