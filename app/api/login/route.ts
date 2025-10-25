@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
 
     console.log("🔐 Intentando login para:", mail)
 
-    const response = await fetch("https://api-parroquia.onrender.com/auth/login", {
+    const response = await fetch("https://api-parroquiasagradafamilia.onrender.com/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

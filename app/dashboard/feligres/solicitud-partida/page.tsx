@@ -58,12 +58,13 @@ export default function SolicitudPartidaFeligres() {
     setLoadingStates((prev) => ({ ...prev, [departureType]: true }))
 
     try {
-      const response = await fetch("http://localhost:5000/requestDeparture/", {
+      const response = await fetch("https://api-parroquiasagradafamilia.onrender.com/requestDeparture/", {
         method: "POST",
+        credentials: 'include', 
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: 'include', // 👈 Envía cookies automáticamente
+        
         body: JSON.stringify({ departureType: departureType }),
       })
 

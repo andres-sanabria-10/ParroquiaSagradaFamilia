@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
     // Llamar al endpoint de logout del backend para limpiar la cookie JWT
     try {
-      const backendResponse = await fetch("https://api-parroquia.onrender.com/auth/logout", {
+      const backendResponse = await fetch("https://api-parroquiasagradafamilia.onrender.com/auth/logout", {
         method: "POST",
         credentials: 'include',
         headers: {
