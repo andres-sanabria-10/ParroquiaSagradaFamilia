@@ -45,7 +45,7 @@ const sidebarItems = [
   },
   {
     title: "Solicitudes de Partidas",
-    href: "/dashboard/secretaria/solicitud-partida",
+    href: "/dashboard/secretaria/solicitud-partida", // Asegúrate que esta ruta sea correcta (singular o plural)
     icon: ClipboardList,
   },
   {
@@ -81,9 +81,11 @@ export default function SolicitudesDePartidas() {
   const [pendingRequests, setPendingRequests] = useState<Solicitud[]>([])
   const [sentRequests, setSentRequests] = useState<Solicitud[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  
-  // Estado para la carga de botones individuales (enviar/eliminar)
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({})
+
+  // ==========================================================
+  // ✨ CAMBIO 1: El estado ahora guarda QUÉ acción se ejecuta
+  // ==========================================================
+  const [actionLoading, setActionLoading] = useState<Record<string, 'send' | 'delete' | null>>({})
 
   // --- 1. Cargar Solicitudes Pendientes (useEffect) ---
   const fetchPendingRequests = async () => {
@@ -91,7 +93,6 @@ export default function SolicitudesDePartidas() {
     try {
       const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/requestDeparture/earring", {
         method: 'GET',
-        // ¡Importante! Usamos credenciales de cookie
         credentials: 'include',
       })
       
@@ -134,9 +135,13 @@ export default function SolicitudesDePartidas() {
     fetchPendingRequests()
   }, [])
 
+  // ==========================================================
+  // ✨ CAMBIO 2: Las funciones guardan la acción ('send' o 'delete')
+  // ==========================================================
+
   // --- 3. Función para Enviar Partida ---
   const handleSendRequest = async (id: string) => {
-    setActionLoading(prev => ({ ...prev, [id]: true }))
+    setActionLoading(prev => ({ ...prev, [id]: 'send' })) // <-- 'send'
     try {
       const res = await fetch(`https://api-parroquiasagradafamilia-s6qu.onrender.com/requestDeparture/send/${id}`, {
         method: 'POST',
@@ -154,13 +159,13 @@ export default function SolicitudesDePartidas() {
     } catch (error: any) {
       toast.error("Error al enviar", { description: error.message })
     } finally {
-      setActionLoading(prev => ({ ...prev, [id]: false }))
+      setActionLoading(prev => ({ ...prev, [id]: null })) // <-- null
     }
   }
   
   // --- 4. Función para Eliminar Solicitud ---
   const handleDeleteRequest = async (id: string) => {
-    setActionLoading(prev => ({ ...prev, [id]: true }))
+    setActionLoading(prev => ({ ...prev, [id]: 'delete' })) // <-- 'delete'
     try {
       const res = await fetch(`https://api-parroquiasagradafamilia-s6qu.onrender.com/requestDeparture/${id}`, {
         method: 'DELETE',
@@ -178,7 +183,7 @@ export default function SolicitudesDePartidas() {
     } catch (error: any) {
       toast.error("Error al eliminar", { description: error.message })
     } finally {
-      setActionLoading(prev => ({ ...prev, [id]: false }))
+      setActionLoading(prev => ({ ...prev, [id]: null })) // <-- null
     }
   }
 
@@ -224,7 +229,7 @@ export default function SolicitudesDePartidas() {
                       {sentRequests.length > 0 ? (
                         sentRequests.map((req) => (
                           <TableRow key={req._id}>
-                            <TableCell>{req.applicant.name} {req.applicant.lastName}</TableCell>
+                            <TableCell>{req.applicant?.name} {req.applicant?.lastName}</TableCell>
                             <TableCell>{req.departureType}</TableCell>
                             <TableCell>{new Date(req.requestDate).toLocaleDateString()}</TableCell>
                             <TableCell><Badge variant="success">Enviada</Badge></TableCell>
@@ -268,19 +273,24 @@ export default function SolicitudesDePartidas() {
                     </TableRow>
                   ) : pendingRequests.length > 0 ? (
                     pendingRequests.map((req) => (
-                      console.log('Mapeando fila. ID:', req._id, 'Solicitante:', req.applicant.name);
                       <TableRow key={req._id}>
-                        <TableCell className="font-medium">{req.applicant.name} {req.applicant.lastName}</TableCell>
+                        <TableCell className="font-medium">{req.applicant?.name} {req.applicant?.lastName}</TableCell>
                         <TableCell>{req.departureType}</TableCell>
                         <TableCell>{new Date(req.requestDate).toLocaleDateString()}</TableCell>
                         <TableCell><Badge variant="outline">{req.status}</Badge></TableCell>
+                        
+                        {/* ========================================================== */}
+                        {/* ✨ CAMBIO 3: Lógica en los botones para carga individual */}
+                        {/* ========================================================== */}
                         <TableCell className="text-right space-x-2">
                           <Button
                             size="sm"
                             onClick={() => handleSendRequest(req._id)}
-                            disabled={actionLoading[req._id]}
+                            // Deshabilita el botón si CUALQUIER acción está en curso en esta fila
+                            disabled={!!actionLoading[req._id]}
                           >
-                            {actionLoading[req._id] ? (
+                            {/* Muestra el loader SOLO SI la acción es 'send' */}
+                            {actionLoading[req._id] === 'send' ? (
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : (
                               <Send className="mr-2 h-4 w-4" />
@@ -291,9 +301,11 @@ export default function SolicitudesDePartidas() {
                             size="sm"
                             variant="destructive"
                             onClick={() => handleDeleteRequest(req._id)}
-                            disabled={actionLoading[req._id]}
+                            // Deshabilita el botón si CUALQUIER acción está en curso en esta fila
+                            disabled={!!actionLoading[req._id]}
                           >
-                            {actionLoading[req._id] ? (
+                            {/* Muestra el loader SOLO SI la acción es 'delete' */}
+                            {actionLoading[req._id] === 'delete' ? (
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : (
                               <Trash2 className="mr-2 h-4 w-4" />
