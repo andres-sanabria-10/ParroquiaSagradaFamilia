@@ -56,7 +56,7 @@ export default function SolicitudPartidaFeligres() {
     console.log("Botón presionado. Solicitando partida:", departureType)
 
     setLoadingStates((prev) => ({ ...prev, [departureType]: true }))
-
+    console.log("🔐 Cookies del frontend:", document.cookie)
     try {
       const response = await fetch("https://api-parroquiasagradafamilia.onrender.com/requestDeparture/", {
         method: "POST",
