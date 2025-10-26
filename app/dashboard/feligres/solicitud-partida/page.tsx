@@ -54,24 +54,22 @@ export default function SolicitudPartidaFeligres() {
   // ✅ ACTUALIZADO: Usa cookies automáticamente
   const handleRequestDeparture = async (departureType: string) => {
     console.log("Botón presionado. Solicitando partida:", departureType)
-
+  
     setLoadingStates((prev) => ({ ...prev, [departureType]: true }))
-    console.log("🔐 Cookies del frontend:", document.cookie)
+  
     try {
-      const response = await fetch("https://api-parroquiasagradafamilia.onrender.com/requestDeparture/", {
+      // 👇 CAMBIO: Llamar a tu API route local en lugar del backend directo
+      const response = await fetch("/api/requestDeparture", {
         method: "POST",
-        credentials: 'include', 
         headers: {
           "Content-Type": "application/json",
         },
-        
         body: JSON.stringify({ departureType: departureType }),
       })
-
+  
       if (!response.ok) {
         const errorData = await response.json()
         
-        // Si el usuario no está autenticado
         if (response.status === 401) {
           toast.error("Sesión expirada", {
             description: "Por favor, inicia sesión de nuevo.",
@@ -79,17 +77,16 @@ export default function SolicitudPartidaFeligres() {
           router.push("/login")
           return
         }
-
-        // Error de partida no encontrada
+  
         if (errorData.error?.includes("No se encontró una partida")) {
           throw new Error(`No tienes una partida de ${departureType.toLowerCase()} registrada en el sistema.`)
         }
         
         throw new Error(errorData.error || "Ocurrió un error en el servidor.")
       }
-
+  
       await response.json()
-
+  
       toast.success(`Solicitud de ${departureType.toLowerCase()} enviada.`, {
         description: "Recibirás el documento en tu correo una vez sea procesado.",
         duration: 6000,
