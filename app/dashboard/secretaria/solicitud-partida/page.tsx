@@ -89,7 +89,7 @@ export default function SolicitudesDePartidas() {
   const fetchPendingRequests = async () => {
     setIsLoading(true)
     try {
-      const res = await fetch("https://api-parroquia.onrender.com/requestDeparture/earring", {
+      const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/requestDeparture/earring", {
         method: 'GET',
         // ¡Importante! Usamos credenciales de cookie
         credentials: 'include',
