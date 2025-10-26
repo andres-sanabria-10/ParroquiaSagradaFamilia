@@ -39,7 +39,7 @@ export default function SecretariaDashboard() {
       <main className="flex-1 overflow-y-auto">
         <div className="p-6">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground">Panel de Secretaria</h1>
+            <h1 className="text-3xl font-bold text-foreground">Panel de Secretarias</h1>
             <p className="text-muted-foreground">Gestiona las solicitudes y documentos parroquiales</p>
           </div>
 
