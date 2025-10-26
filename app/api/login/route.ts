@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
 
     const response = await fetch("https://api-parroquiasagradafamilia.onrender.com/auth/login", {
       method: "POST",
+      credentials: 'include',
       headers: {
         "Content-Type": "application/json",
       },
