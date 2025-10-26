@@ -112,7 +112,7 @@ export default function SolicitudesDePartidas() {
   // --- 2. Cargar Solicitudes Enviadas (para el Modal) ---
   const fetchSentRequests = async () => {
     try {
-      const res = await fetch("https://api-parroquia.onrender.com/requestDeparture/sent", {
+      const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/requestDeparture/sent", {
         method: 'GET',
         credentials: 'include',
       })
@@ -138,7 +138,7 @@ export default function SolicitudesDePartidas() {
   const handleSendRequest = async (id: string) => {
     setActionLoading(prev => ({ ...prev, [id]: true }))
     try {
-      const res = await fetch(`https://api-parroquia.onrender.com/requestDeparture/send/${id}`, {
+      const res = await fetch(`https://api-parroquiasagradafamilia-s6qu.onrender.com/requestDeparture/send/${id}`, {
         method: 'POST',
         credentials: 'include',
       })
@@ -162,7 +162,7 @@ export default function SolicitudesDePartidas() {
   const handleDeleteRequest = async (id: string) => {
     setActionLoading(prev => ({ ...prev, [id]: true }))
     try {
-      const res = await fetch(`https://api-parroquia.onrender.com/requestDeparture/${id}`, {
+      const res = await fetch(`https://api-parroquiasagradafamilia-s6qu.onrender.com/requestDeparture/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       })
