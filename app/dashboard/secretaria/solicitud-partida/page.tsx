@@ -268,6 +268,7 @@ export default function SolicitudesDePartidas() {
                     </TableRow>
                   ) : pendingRequests.length > 0 ? (
                     pendingRequests.map((req) => (
+                      console.log('Mapeando fila. ID:', req._id, 'Solicitante:', req.applicant.name);
                       <TableRow key={req._id}>
                         <TableCell className="font-medium">{req.applicant.name} {req.applicant.lastName}</TableCell>
                         <TableCell>{req.departureType}</TableCell>
