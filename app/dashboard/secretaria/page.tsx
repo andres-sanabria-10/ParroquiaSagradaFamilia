@@ -6,14 +6,14 @@ import { FileText, Church, DollarSign, ClipboardList, Calendar, Users, Bell } fr
 
 const sidebarItems = [
   {
-    title: "Solicitud de Partida",
-    href: "/dashboard/secretaria/solicitud-partida",
-    icon: ClipboardList,
-  },
-  {
     title: "Gestión de Partidas",
     href: "/dashboard/secretaria/partidas",
     icon: FileText,
+  },
+  {
+    title: "Solicitudes de Partidas",
+    href: "/dashboard/secretaria/solicitud-partida",
+    icon: ClipboardList,
   },
   {
     title: "Gestión de Misas",
@@ -21,14 +21,14 @@ const sidebarItems = [
     icon: Church,
   },
   {
+    title: "Solicitudes de Misa",
+    href: "/dashboard/secretaria/solicitud-misa",
+    icon: Calendar,
+  },
+  {
     title: "Contabilidad",
     href: "/dashboard/secretaria/contabilidad",
     icon: DollarSign,
-  },
-  {
-    title: "Solicitud de Misa",
-    href: "/dashboard/secretaria/solicitud-misa",
-    icon: Calendar,
   },
 ]
 
