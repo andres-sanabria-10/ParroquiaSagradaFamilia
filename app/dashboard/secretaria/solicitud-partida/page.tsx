@@ -54,7 +54,7 @@ const sidebarItems = [
     icon: Church,
   },
   {
-    title: "Solicitud de Misa",
+    title: "Solicitudes de Misa",
     href: "/dashboard/secretaria/solicitud-misa",
     icon: Calendar,
   },
