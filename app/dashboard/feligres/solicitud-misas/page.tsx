@@ -209,7 +209,7 @@ export default function SolicitudMisasFeligres() {
                   {/* ✨ CAMBIO 2: Centramos y escalamos el calendario */}
                   {/* ========================================================== */}
                   <div className="flex justify-center items-center pt-8">
-                    <div className="scale-125">
+                    <div className="scale-100">
                       <Calendar
                         mode="single"
                         selected={selectedDate}
