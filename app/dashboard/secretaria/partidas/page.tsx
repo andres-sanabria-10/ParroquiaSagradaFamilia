@@ -52,9 +52,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-// --- Importar todos los formularios ---
 import { FormularioBautismo } from "./components/FormularioBautismo"
-// Importar FormularioConfirmacion (lo crearemos en el Paso 2)
 import { FormularioConfirmacion } from "./components/FormularioConfirmacion" 
 // Aquí importaremos los de Matrimonio y Defuncion más adelante
 
@@ -106,13 +104,15 @@ interface Bautismo {
   godfather2?: string
 }
 
-// NUEVA INTERFAZ para Confirmaciones
+// --- INTERFAZ CORREGIDA para Confirmaciones ---
 interface Confirmacion {
   _id: string
   confirmed: UserInfo
   confirmationDate: string
-  bishopName: string
-  godparent: string
+  fatherName: string
+  motherName: string
+  godfather: string
+  baptizedParish?: string
 }
 
 // Aquí irían las interfaces para Matrimonio y Defuncion más adelante
@@ -126,7 +126,7 @@ export default function GestionPartidasSecretaria() {
   const [isCreateBautismoModalOpen, setIsCreateBautismoModalOpen] = useState(false)
   const [editingBautismo, setEditingBautismo] = useState<Bautismo | null>(null)
 
-  // --- NUEVOS Estados para CONFIRMACIONES ---
+  // --- Estados para CONFIRMACIONES ---
   const [confirmacionSearchTerm, setConfirmacionSearchTerm] = useState("")
   const [confirmacionSearchResults, setConfirmacionSearchResults] = useState<Confirmacion[]>([])
   const [isConfirmacionLoading, setIsConfirmacionLoading] = useState(false)
@@ -197,7 +197,7 @@ export default function GestionPartidasSecretaria() {
     }
   }
 
-  // --- NUEVAS Funciones para CONFIRMACIONES ---
+  // --- Funciones para CONFIRMACIONES ---
 
   // Lógica para Búsqueda (Leer) - CONFIRMACIONES
   const handleConfirmacionSearch = async (e?: React.FormEvent) => {
@@ -426,7 +426,7 @@ export default function GestionPartidasSecretaria() {
             </TabsContent>
 
             {/* ======================================= */}
-            {/* === NUEVO PANEL DE CONFIRMACIONES === */}
+            {/* === PANEL DE CONFIRMACIONES (CORREGIDO) === */}
             {/* ======================================= */}
             <TabsContent value="confirmacion">
               <Card>
@@ -450,7 +450,7 @@ export default function GestionPartidasSecretaria() {
                             Completa los campos para registrar una nueva partida de confirmación.
                           </DialogDescription>
                         </DialogHeader>
-                        {/* Aquí ira el FormularioConfirmacion */}
+                        {/* --- Usamos el formulario corregido --- */}
                         <FormularioConfirmacion onSuccess={handleConfirmacionFormSuccess} />
                       </DialogContent>
                     </Dialog>
@@ -471,14 +471,15 @@ export default function GestionPartidasSecretaria() {
                     </Button>
                   </form>
 
-                  {/* --- Tabla de Resultados Confirmación --- */}
+                  {/* --- Tabla de Resultados Confirmación (CORREGIDA) --- */}
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nombre</TableHead>
                         <TableHead>Documento</TableHead>
-                        <TableHead>Fecha Confirmación</TableHead>
-                        <TableHead>Obispo</TableHead>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Padre</TableHead>
+                        <TableHead>Madre</TableHead>
                         <TableHead>Padrino/Madrina</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
@@ -486,7 +487,7 @@ export default function GestionPartidasSecretaria() {
                     <TableBody>
                       {isConfirmacionLoading ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center">
+                          <TableCell colSpan={7} className="text-center">
                             <Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...
                           </TableCell>
                         </TableRow>
@@ -496,8 +497,9 @@ export default function GestionPartidasSecretaria() {
                             <TableCell className="font-medium">{c.confirmed.name} {c.confirmed.lastName}</TableCell>
                             <TableCell>{c.confirmed.documentNumber}</TableCell>
                             <TableCell>{new Date(c.confirmationDate).toLocaleDateString()}</TableCell>
-                            <TableCell>{c.bishopName}</TableCell>
-                            <TableCell>{c.godparent}</TableCell>
+                            <TableCell>{c.fatherName}</TableCell>
+                            <TableCell>{c.motherName}</TableCell>
+                            <TableCell>{c.godfather}</TableCell>
                             <TableCell className="text-right space-x-2">
                               {/* Conectar Modal de EDITAR Confirmación */}
                               <Dialog open={editingConfirmacion?._id === c._id} onOpenChange={(isOpen) => {
@@ -514,14 +516,16 @@ export default function GestionPartidasSecretaria() {
                                     <DialogDescription>Modifica los datos del registro.</DialogDescription>
                                   </DialogHeader>
                                   {editingConfirmacion && (
-                                    // Aquí ira el FormularioConfirmacion con defaultValues
+                                    // --- Pasamos los valores corregidos ---
                                     <FormularioConfirmacion
                                       onSuccess={handleConfirmacionFormSuccess}
                                       defaultValues={{
                                         documentNumber: editingConfirmacion.confirmed.documentNumber,
                                         confirmationDate: new Date(editingConfirmacion.confirmationDate).toISOString().split('T')[0],
-                                        bishopName: editingConfirmacion.bishopName,
-                                        godparent: editingConfirmacion.godparent,
+                                        fatherName: editingConfirmacion.fatherName,
+                                        motherName: editingConfirmacion.motherName,
+                                        godfather: editingConfirmacion.godfather,
+                                        baptizedParish: editingConfirmacion.baptizedParish || "",
                                       }}
                                     />
                                   )}
@@ -559,7 +563,7 @@ export default function GestionPartidasSecretaria() {
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center">No se encontraron resultados. Realiza una búsqueda.</TableCell>
+                          <TableCell colSpan={7} className="text-center">No se encontraron resultados. Realiza una búsqueda.</TableCell>
                         </TableRow>
                       )}
                     </TableBody>
