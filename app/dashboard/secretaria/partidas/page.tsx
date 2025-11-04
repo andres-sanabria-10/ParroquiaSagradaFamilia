@@ -52,9 +52,11 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+// --- Importar todos los formularios ---
 import { FormularioBautismo } from "./components/FormularioBautismo"
 import { FormularioConfirmacion } from "./components/FormularioConfirmacion" 
-// Aquí importaremos los de Matrimonio y Defuncion más adelante
+import { FormularioMatrimonio } from "./components/FormularioMatrimonio"
+import { FormularioDefuncion } from "./components/FormularioDefuncion"
 
 // --- Sidebar ---
 const sidebarItems = [
@@ -104,7 +106,6 @@ interface Bautismo {
   godfather2?: string
 }
 
-// --- INTERFAZ CORREGIDA para Confirmaciones ---
 interface Confirmacion {
   _id: string
   confirmed: UserInfo
@@ -115,7 +116,32 @@ interface Confirmacion {
   baptizedParish?: string
 }
 
-// Aquí irían las interfaces para Matrimonio y Defuncion más adelante
+interface Matrimonio {
+  _id: string
+  husband: UserInfo
+  wife: UserInfo
+  marriageDate: string
+  father_husband?: string
+  mother_husband?: string
+  father_wife?: string
+  mother_wife?: string
+  godfather1: string
+  godfather2: string
+  witness1: string
+  witness2: string
+}
+
+interface Defuncion {
+  _id: string
+  dead: UserInfo
+  deathDate: string
+  fatherName: string
+  motherName: string
+  civilStatus: string
+  cemeteryName: string
+  funeralDate?: string
+}
+
 
 export default function GestionPartidasSecretaria() {
   // --- Estados para BAUTISMOS ---
@@ -134,132 +160,128 @@ export default function GestionPartidasSecretaria() {
   const [isCreateConfirmacionModalOpen, setIsCreateConfirmacionModalOpen] = useState(false)
   const [editingConfirmacion, setEditingConfirmacion] = useState<Confirmacion | null>(null)
 
-  // --- Lógica para Búsqueda (Leer) - BAUTISMOS ---
+  // --- Estados para MATRIMONIOS ---
+  const [matrimonioSearchTerm, setMatrimonioSearchTerm] = useState("")
+  const [matrimonioSearchResults, setMatrimonioSearchResults] = useState<Matrimonio[]>([])
+  const [isMatrimonioLoading, setIsMatrimonioLoading] = useState(false)
+  const [isMatrimonioDeleting, setIsMatrimonioDeleting] = useState(false)
+  const [isCreateMatrimonioModalOpen, setIsCreateMatrimonioModalOpen] = useState(false)
+  const [editingMatrimonio, setEditingMatrimonio] = useState<Matrimonio | null>(null)
+
+  // --- Estados para DEFUNCIONES ---
+  const [defuncionSearchTerm, setDefuncionSearchTerm] = useState("")
+  const [defuncionSearchResults, setDefuncionSearchResults] = useState<Defuncion[]>([])
+  const [isDefuncionLoading, setIsDefuncionLoading] = useState(false)
+  const [isDefuncionDeleting, setIsDefuncionDeleting] = useState(false)
+  const [isCreateDefuncionModalOpen, setIsCreateDefuncionModalOpen] = useState(false)
+  const [editingDefuncion, setEditingDefuncion] = useState<Defuncion | null>(null)
+
+
+  // --- API Base URL ---
+  const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
+
+  // --- Lógica para BAUTISMOS ---
   const handleBautismoSearch = async (e?: React.FormEvent) => {
-    e?.preventDefault()
-    if (!bautismoSearchTerm) return
-    
-    setIsBautismoLoading(true)
-    setBautismoSearchResults([])
+    e?.preventDefault(); if (!bautismoSearchTerm) return;
+    setIsBautismoLoading(true); setBautismoSearchResults([]);
     try {
-      const res = await fetch(`https://api-parroquiasagradafamilia-s6qu.onrender.com/baptism/${bautismoSearchTerm}`, {
-        method: 'GET',
-        credentials: 'include',
-      })
-      
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || "Bautismo no encontrado")
-      }
-      
-      const data: Bautismo = await res.json()
-      setBautismoSearchResults([data])
-      toast.success("Bautismo encontrado")
-      
-    } catch (error: any) {
-      toast.error("Error al buscar bautismo", { description: error.message })
-    } finally {
-      setIsBautismoLoading(false)
-    }
+      const res = await fetch(`${API_URL}/baptism/${bautismoSearchTerm}`, { method: 'GET', credentials: 'include' });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Bautismo no encontrado"); }
+      const data: Bautismo = await res.json();
+      setBautismoSearchResults([data]); toast.success("Bautismo encontrado");
+    } catch (error: any) { toast.error("Error al buscar bautismo", { description: error.message });
+    } finally { setIsLoading(false); }
   }
-
-  // --- Lógica para Eliminar - BAUTISMOS ---
   const handleBautismoDelete = async (documentNumber: string) => {
-    setIsBautismoDeleting(true)
+    setIsBautismoDeleting(true);
     try {
-      const res = await fetch(`https://api-parroquiasagradafamilia-s6qu.onrender.com/baptism/${documentNumber}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      })
-      
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || "No se pudo eliminar el registro de bautismo")
-      }
-      
-      toast.success("Bautismo eliminado correctamente")
-      setBautismoSearchResults([]) 
-      setBautismoSearchTerm("") 
-      
-    } catch (error: any) {
-      toast.error("Error al eliminar bautismo", { description: error.message })
-    } finally {
-      setIsBautismoDeleting(false)
-    }
+      const res = await fetch(`${API_URL}/baptism/${documentNumber}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "No se pudo eliminar"); }
+      toast.success("Bautismo eliminado"); setBautismoSearchResults([]); setBautismoSearchTerm("");
+    } catch (error: any) { toast.error("Error al eliminar bautismo", { description: error.message });
+    } finally { setIsBautismoDeleting(false); }
   }
-
-  // --- Lógica para el éxito del formulario (Crear/Editar) - BAUTISMOS ---
   const handleBautismoFormSuccess = () => {
-    setIsCreateBautismoModalOpen(false)
-    setEditingBautismo(null)
-    if (bautismoSearchTerm) {
-      handleBautismoSearch() // Refrescar si hay búsqueda activa
-    }
+    setIsCreateBautismoModalOpen(false); setEditingBautismo(null);
+    if (bautismoSearchTerm) handleBautismoSearch();
   }
 
-  // --- Funciones para CONFIRMACIONES ---
-
-  // Lógica para Búsqueda (Leer) - CONFIRMACIONES
+  // --- Lógica para CONFIRMACIONES ---
   const handleConfirmacionSearch = async (e?: React.FormEvent) => {
-    e?.preventDefault()
-    if (!confirmacionSearchTerm) return
-    
-    setIsConfirmacionLoading(true)
-    setConfirmacionSearchResults([])
+    e?.preventDefault(); if (!confirmacionSearchTerm) return;
+    setIsConfirmacionLoading(true); setConfirmacionSearchResults([]);
     try {
-      const res = await fetch(`https://api-parroquiasagradafamilia-s6qu.onrender.com/confirmation/${confirmacionSearchTerm}`, {
-        method: 'GET',
-        credentials: 'include',
-      })
-      
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || "Confirmación no encontrada")
-      }
-      
-      const data: Confirmacion = await res.json()
-      setConfirmacionSearchResults([data])
-      toast.success("Confirmación encontrada")
-      
-    } catch (error: any) {
-      toast.error("Error al buscar confirmación", { description: error.message })
-    } finally {
-      setIsConfirmacionLoading(false)
-    }
+      const res = await fetch(`${API_URL}/confirmation/${confirmacionSearchTerm}`, { method: 'GET', credentials: 'include' });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Confirmación no encontrada"); }
+      const data: Confirmacion = await res.json();
+      setConfirmacionSearchResults([data]); toast.success("Confirmación encontrada");
+    } catch (error: any) { toast.error("Error al buscar confirmación", { description: error.message });
+    } finally { setIsConfirmacionLoading(false); }
   }
-
-  // Lógica para Eliminar - CONFIRMACIONES
   const handleConfirmacionDelete = async (documentNumber: string) => {
-    setIsConfirmacionDeleting(true)
+    setIsConfirmacionDeleting(true);
     try {
-      const res = await fetch(`https://api-parroquiasagradafamilia-s6qu.onrender.com/confirmation/${documentNumber}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      })
-      
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || "No se pudo eliminar el registro de confirmación")
-      }
-      
-      toast.success("Confirmación eliminada correctamente")
-      setConfirmacionSearchResults([]) 
-      setConfirmacionSearchTerm("") 
-      
-    } catch (error: any) {
-      toast.error("Error al eliminar confirmación", { description: error.message })
-    } finally {
-      setIsConfirmacionDeleting(false)
-    }
+      const res = await fetch(`${API_URL}/confirmation/${documentNumber}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "No se pudo eliminar"); }
+      toast.success("Confirmación eliminada"); setConfirmacionSearchResults([]); setConfirmacionSearchTerm("");
+    } catch (error: any) { toast.error("Error al eliminar confirmación", { description: error.message });
+    } finally { setIsConfirmacionDeleting(false); }
+  }
+  const handleConfirmacionFormSuccess = () => {
+    setIsCreateConfirmacionModalOpen(false); setEditingConfirmacion(null);
+    if (confirmacionSearchTerm) handleConfirmacionSearch();
   }
 
-  // Lógica para el éxito del formulario (Crear/Editar) - CONFIRMACIONES
-  const handleConfirmacionFormSuccess = () => {
-    setIsCreateConfirmacionModalOpen(false)
-    setEditingConfirmacion(null)
-    if (confirmacionSearchTerm) {
-      handleConfirmacionSearch() // Refrescar si hay búsqueda activa
-    }
+  // --- Lógica para MATRIMONIOS ---
+  const handleMatrimonioSearch = async (e?: React.FormEvent) => {
+    e?.preventDefault(); if (!matrimonioSearchTerm) return;
+    setIsMatrimonioLoading(true); setMatrimonioSearchResults([]);
+    try {
+      const res = await fetch(`${API_URL}/marriage/${matrimonioSearchTerm}`, { method: 'GET', credentials: 'include' });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Matrimonio no encontrado"); }
+      const data: Matrimonio = await res.json();
+      setMatrimonioSearchResults([data]); toast.success("Matrimonio encontrado");
+    } catch (error: any) { toast.error("Error al buscar matrimonio", { description: error.message });
+    } finally { setIsMatrimonioLoading(false); }
+  }
+  const handleMatrimonioDelete = async (documentNumber: string) => {
+    setIsMatrimonioDeleting(true);
+    try {
+      const res = await fetch(`${API_URL}/marriage/${documentNumber}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "No se pudo eliminar"); }
+      toast.success("Matrimonio eliminado"); setMatrimonioSearchResults([]); setMatrimonioSearchTerm("");
+    } catch (error: any) { toast.error("Error al eliminar matrimonio", { description: error.message });
+    } finally { setIsMatrimonioDeleting(false); }
+  }
+  const handleMatrimonioFormSuccess = () => {
+    setIsCreateMatrimonioModalOpen(false); setEditingMatrimonio(null);
+    if (matrimonioSearchTerm) handleMatrimonioSearch();
+  }
+
+  // --- Lógica para DEFUNCIONES ---
+  const handleDefuncionSearch = async (e?: React.FormEvent) => {
+    e?.preventDefault(); if (!defuncionSearchTerm) return;
+    setIsDefuncionLoading(true); setDefuncionSearchResults([]);
+    try {
+      const res = await fetch(`${API_URL}/death/${defuncionSearchTerm}`, { method: 'GET', credentials: 'include' });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Defunción no encontrada"); }
+      const data: Defuncion = await res.json();
+      setDefuncionSearchResults([data]); toast.success("Defunción encontrada");
+    } catch (error: any) { toast.error("Error al buscar defunción", { description: error.message });
+    } finally { setIsDefuncionLoading(false); }
+  }
+  const handleDefuncionDelete = async (documentNumber: string) => {
+    setIsDefuncionDeleting(true);
+    try {
+      const res = await fetch(`${API_URL}/death/${documentNumber}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "No se pudo eliminar"); }
+      toast.success("Defunción eliminada"); setDefuncionSearchResults([]); setDefuncionSearchTerm("");
+    } catch (error: any) { toast.error("Error al eliminar defunción", { description: error.message });
+    } finally { setIsDefuncionDeleting(false); }
+  }
+  const handleDefuncionFormSuccess = () => {
+    setIsCreateDefuncionModalOpen(false); setEditingDefuncion(null);
+    if (defuncionSearchTerm) handleDefuncionSearch();
   }
 
 
@@ -282,7 +304,7 @@ export default function GestionPartidasSecretaria() {
             </TabsList>
 
             {/* ================================== */}
-            {/* === PANEL DE BAUTISMOS (COMPLETO) === */}
+            {/* === PANEL DE BAUTISMOS === */}
             {/* ================================== */}
             <TabsContent value="bautismo">
               <Card>
@@ -292,19 +314,13 @@ export default function GestionPartidasSecretaria() {
                       <CardTitle>Registros de Bautismo</CardTitle>
                       <CardDescription>Busca, crea, edita o elimina registros de bautismo.</CardDescription>
                     </div>
-                    {/* Conectar Modal de CREAR */}
                     <Dialog open={isCreateBautismoModalOpen} onOpenChange={setIsCreateBautismoModalOpen}>
                       <DialogTrigger asChild>
-                        <Button>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Registrar Bautismo
-                        </Button>
+                        <Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Bautismo</Button>
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-3xl">
                         <DialogHeader>
                           <DialogTitle>Registrar Nuevo Bautismo</DialogTitle>
-                          <DialogDescription>
-                            Completa los campos para registrar una nueva partida de bautismo.
-                          </DialogDescription>
                         </DialogHeader>
                         <FormularioBautismo onSuccess={handleBautismoFormSuccess} />
                       </DialogContent>
@@ -312,7 +328,6 @@ export default function GestionPartidasSecretaria() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* --- Barra de Búsqueda --- */}
                   <form onSubmit={handleBautismoSearch} className="flex items-center space-x-2 mb-4">
                     <Search className="w-4 h-4 text-muted-foreground" />
                     <Input
@@ -325,8 +340,6 @@ export default function GestionPartidasSecretaria() {
                       {isBautismoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}
                     </Button>
                   </form>
-
-                  {/* --- Tabla de Resultados --- */}
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -340,34 +353,20 @@ export default function GestionPartidasSecretaria() {
                     </TableHeader>
                     <TableBody>
                       {isBautismoLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...
-                          </TableCell>
-                        </TableRow>
+                        <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...</TableCell></TableRow>
                       ) : bautismoSearchResults.length > 0 ? (
                         bautismoSearchResults.map((b) => (
                           <TableRow key={b._id}>
-                            <TableCell className="font-medium">{b.baptized.name} {b.baptized.lastName}</TableCell>
+                            <TableCell>{b.baptized.name} {b.baptized.lastName}</TableCell>
                             <TableCell>{b.baptized.documentNumber}</TableCell>
                             <TableCell>{new Date(b.baptismDate).toLocaleDateString()}</TableCell>
                             <TableCell>{b.fatherName}</TableCell>
                             <TableCell>{b.motherName}</TableCell>
                             <TableCell className="text-right space-x-2">
-                              {/* Conectar Modal de EDITAR */}
-                              <Dialog open={editingBautismo?._id === b._id} onOpenChange={(isOpen) => {
-                                if (!isOpen) setEditingBautismo(null);
-                              }}>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm" onClick={() => setEditingBautismo(b)}>
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                </DialogTrigger>
+                              <Dialog open={editingBautismo?._id === b._id} onOpenChange={(isOpen) => !isOpen && setEditingBautismo(null)}>
+                                <DialogTrigger asChild><Button variant="outline" size="sm" onClick={() => setEditingBautismo(b)}><Edit className="w-4 h-4" /></Button></DialogTrigger>
                                 <DialogContent className="sm:max-w-3xl">
-                                  <DialogHeader>
-                                    <DialogTitle>Editar Registro de Bautismo</DialogTitle>
-                                    <DialogDescription>Modifica los datos del registro.</DialogDescription>
-                                  </DialogHeader>
+                                  <DialogHeader><DialogTitle>Editar Registro de Bautismo</DialogTitle></DialogHeader>
                                   {editingBautismo && (
                                     <FormularioBautismo
                                       onSuccess={handleBautismoFormSuccess}
@@ -384,28 +383,16 @@ export default function GestionPartidasSecretaria() {
                                   )}
                                 </DialogContent>
                               </Dialog>
-                              
-                              {/* Botón Eliminar */}
                               <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button>
-                                </AlertDialogTrigger>
+                                <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Estás seguro de eliminar este registro?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Esta acción es permanente. Se eliminará el registro de bautismo de:
-                                      <br />
-                                      <strong className="py-2 block">{b.baptized.name} {b.baptized.lastName}</strong>
-                                      No podrás deshacer esta acción.
-                                    </AlertDialogDescription>
+                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription>Se eliminará el registro de: <strong className="py-2 block">{b.baptized.name} {b.baptized.lastName}</strong>. Esta acción es permanente.</AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleBautismoDelete(b.baptized.documentNumber)}
-                                      disabled={isBautismoDeleting}
-                                    >
+                                    <AlertDialogAction onClick={() => handleBautismoDelete(b.baptized.documentNumber)} disabled={isBautismoDeleting}>
                                       {isBautismoDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
@@ -415,9 +402,7 @@ export default function GestionPartidasSecretaria() {
                           </TableRow>
                         ))
                       ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center">No se encontraron resultados. Realiza una búsqueda.</TableCell>
-                        </TableRow>
+                        <TableRow><TableCell colSpan={6} className="text-center">No se encontraron resultados. Realiza una búsqueda.</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -426,7 +411,7 @@ export default function GestionPartidasSecretaria() {
             </TabsContent>
 
             {/* ======================================= */}
-            {/* === PANEL DE CONFIRMACIONES (CORREGIDO) === */}
+            {/* === PANEL DE CONFIRMACIONES === */}
             {/* ======================================= */}
             <TabsContent value="confirmacion">
               <Card>
@@ -436,28 +421,18 @@ export default function GestionPartidasSecretaria() {
                       <CardTitle>Registros de Confirmación</CardTitle>
                       <CardDescription>Busca, crea, edita o elimina registros de confirmación.</CardDescription>
                     </div>
-                    {/* Conectar Modal de CREAR Confirmación */}
                     <Dialog open={isCreateConfirmacionModalOpen} onOpenChange={setIsCreateConfirmacionModalOpen}>
                       <DialogTrigger asChild>
-                        <Button>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Registrar Confirmación
-                        </Button>
+                        <Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Confirmación</Button>
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-3xl">
-                        <DialogHeader>
-                          <DialogTitle>Registrar Nueva Confirmación</DialogTitle>
-                          <DialogDescription>
-                            Completa los campos para registrar una nueva partida de confirmación.
-                          </DialogDescription>
-                        </DialogHeader>
-                        {/* --- Usamos el formulario corregido --- */}
+                        <DialogHeader><DialogTitle>Registrar Nueva Confirmación</DialogTitle></DialogHeader>
                         <FormularioConfirmacion onSuccess={handleConfirmacionFormSuccess} />
                       </DialogContent>
                     </Dialog>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* --- Barra de Búsqueda Confirmación --- */}
                   <form onSubmit={handleConfirmacionSearch} className="flex items-center space-x-2 mb-4">
                     <Search className="w-4 h-4 text-muted-foreground" />
                     <Input
@@ -470,8 +445,6 @@ export default function GestionPartidasSecretaria() {
                       {isConfirmacionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}
                     </Button>
                   </form>
-
-                  {/* --- Tabla de Resultados Confirmación (CORREGIDA) --- */}
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -480,43 +453,28 @@ export default function GestionPartidasSecretaria() {
                         <TableHead>Fecha</TableHead>
                         <TableHead>Padre</TableHead>
                         <TableHead>Madre</TableHead>
-                        <TableHead>Padrino/Madrina</TableHead>
+                        <TableHead>Padrino</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {isConfirmacionLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...
-                          </TableCell>
-                        </TableRow>
+                        <TableRow><TableCell colSpan={7} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...</TableCell></TableRow>
                       ) : confirmacionSearchResults.length > 0 ? (
                         confirmacionSearchResults.map((c) => (
                           <TableRow key={c._id}>
-                            <TableCell className="font-medium">{c.confirmed.name} {c.confirmed.lastName}</TableCell>
+                            <TableCell>{c.confirmed.name} {c.confirmed.lastName}</TableCell>
                             <TableCell>{c.confirmed.documentNumber}</TableCell>
                             <TableCell>{new Date(c.confirmationDate).toLocaleDateString()}</TableCell>
                             <TableCell>{c.fatherName}</TableCell>
                             <TableCell>{c.motherName}</TableCell>
                             <TableCell>{c.godfather}</TableCell>
                             <TableCell className="text-right space-x-2">
-                              {/* Conectar Modal de EDITAR Confirmación */}
-                              <Dialog open={editingConfirmacion?._id === c._id} onOpenChange={(isOpen) => {
-                                if (!isOpen) setEditingConfirmacion(null);
-                              }}>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm" onClick={() => setEditingConfirmacion(c)}>
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                </DialogTrigger>
+                              <Dialog open={editingConfirmacion?._id === c._id} onOpenChange={(isOpen) => !isOpen && setEditingConfirmacion(null)}>
+                                <DialogTrigger asChild><Button variant="outline" size="sm" onClick={() => setEditingConfirmacion(c)}><Edit className="w-4 h-4" /></Button></DialogTrigger>
                                 <DialogContent className="sm:max-w-3xl">
-                                  <DialogHeader>
-                                    <DialogTitle>Editar Registro de Confirmación</DialogTitle>
-                                    <DialogDescription>Modifica los datos del registro.</DialogDescription>
-                                  </DialogHeader>
+                                  <DialogHeader><DialogTitle>Editar Registro de Confirmación</DialogTitle></DialogHeader>
                                   {editingConfirmacion && (
-                                    // --- Pasamos los valores corregidos ---
                                     <FormularioConfirmacion
                                       onSuccess={handleConfirmacionFormSuccess}
                                       defaultValues={{
@@ -531,28 +489,16 @@ export default function GestionPartidasSecretaria() {
                                   )}
                                 </DialogContent>
                               </Dialog>
-                              
-                              {/* Botón Eliminar Confirmación */}
                               <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button>
-                                </AlertDialogTrigger>
+                                <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Estás seguro de eliminar este registro?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Esta acción es permanente. Se eliminará el registro de confirmación de:
-                                      <br />
-                                      <strong className="py-2 block">{c.confirmed.name} {c.confirmed.lastName}</strong>
-                                      No podrás deshacer esta acción.
-                                    </AlertDialogDescription>
+                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription>Se eliminará el registro de: <strong className="py-2 block">{c.confirmed.name} {c.confirmed.lastName}</strong>. Esta acción es permanente.</AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleConfirmacionDelete(c.confirmed.documentNumber)}
-                                      disabled={isConfirmacionDeleting}
-                                    >
+                                    <AlertDialogAction onClick={() => handleConfirmacionDelete(c.confirmed.documentNumber)} disabled={isConfirmacionDeleting}>
                                       {isConfirmacionDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
@@ -562,9 +508,7 @@ export default function GestionPartidasSecretaria() {
                           </TableRow>
                         ))
                       ) : (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center">No se encontraron resultados. Realiza una búsqueda.</TableCell>
-                        </TableRow>
+                        <TableRow><TableCell colSpan={7} className="text-center">No se encontraron resultados. Realiza una búsqueda.</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -572,19 +516,220 @@ export default function GestionPartidasSecretaria() {
               </Card>
             </TabsContent>
 
-            {/* --- Paneles de Matrimonio y Defuncion (Vacíos por ahora) --- */}
+            {/* ======================================= */}
+            {/* === PANEL DE MATRIMONIOS === */}
+            {/* ======================================= */}
             <TabsContent value="matrimonio">
               <Card>
-                <CardHeader><CardTitle>Gestión de Matrimonios</CardTitle></CardHeader>
-                <CardContent><p>Aquí irá la interfaz para el CRUD de Matrimonios.</p></CardContent>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Registros de Matrimonio</CardTitle>
+                      <CardDescription>Busca, crea, edita o elimina registros de matrimonio.</CardDescription>
+                    </div>
+                    <Dialog open={isCreateMatrimonioModalOpen} onOpenChange={setIsCreateMatrimonioModalOpen}>
+                      <DialogTrigger asChild>
+                        <Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Matrimonio</Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-3xl">
+                        <DialogHeader><DialogTitle>Registrar Nuevo Matrimonio</DialogTitle></DialogHeader>
+                        <FormularioMatrimonio onSuccess={handleMatrimonioFormSuccess} />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleMatrimonioSearch} className="flex items-center space-x-2 mb-4">
+                    <Search className="w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por DNI (esposo o esposa)..."
+                      value={matrimonioSearchTerm}
+                      onChange={(e) => setMatrimonioSearchTerm(e.target.value)}
+                      className="max-w-sm"
+                    />
+                    <Button type="submit" disabled={isMatrimonioLoading}>
+                      {isMatrimonioLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}
+                    </Button>
+                  </form>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Esposo</TableHead>
+                        <TableHead>Esposa</TableHead>
+                        <TableHead>Fecha Matrimonio</TableHead>
+                        <TableHead>Padrino 1</TableHead>
+                        <TableHead>Padrino 2</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isMatrimonioLoading ? (
+                        <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...</TableCell></TableRow>
+                      ) : matrimonioSearchResults.length > 0 ? (
+                        matrimonioSearchResults.map((m) => (
+                          <TableRow key={m._id}>
+                            <TableCell>{m.husband.name} {m.husband.lastName}</TableCell>
+                            <TableCell>{m.wife.name} {m.wife.lastName}</TableCell>
+                            <TableCell>{new Date(m.marriageDate).toLocaleDateString()}</TableCell>
+                            <TableCell>{m.godfather1}</TableCell>
+                            <TableCell>{m.godfather2}</TableCell>
+                            <TableCell className="text-right space-x-2">
+                              <Dialog open={editingMatrimonio?._id === m._id} onOpenChange={(isOpen) => !isOpen && setEditingMatrimonio(null)}>
+                                <DialogTrigger asChild><Button variant="outline" size="sm" onClick={() => setEditingMatrimonio(m)}><Edit className="w-4 h-4" /></Button></DialogTrigger>
+                                <DialogContent className="sm:max-w-3xl">
+                                  <DialogHeader><DialogTitle>Editar Registro de Matrimonio</DialogTitle></DialogHeader>
+                                  {editingMatrimonio && (
+                                    <FormularioMatrimonio
+                                      onSuccess={handleMatrimonioFormSuccess}
+                                      defaultValues={{
+                                        husbandDocumentNumber: editingMatrimonio.husband.documentNumber,
+                                        wifeDocumentNumber: editingMatrimonio.wife.documentNumber,
+                                        marriageDate: new Date(editingMatrimonio.marriageDate).toISOString().split('T')[0],
+                                        father_husband: editingMatrimonio.father_husband || "",
+                                        mother_husband: editingMatrimonio.mother_husband || "",
+                                        father_wife: editingMatrimonio.father_wife || "",
+                                        mother_wife: editingMatrimonio.mother_wife || "",
+                                        godfather1: editingMatrimonio.godfather1,
+                                        godfather2: editingMatrimonio.godfather2,
+                                        witness1: editingMatrimonio.witness1,
+                                        witness2: editingMatrimonio.witness2,
+                                      }}
+                                    />
+                                  )}
+                                </DialogContent>
+                              </Dialog>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription>Se eliminará el matrimonio de: <strong className="py-2 block">{m.husband.name} y {m.wife.name}</strong>. Esta acción es permanente.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleMatrimonioDelete(m.husband.documentNumber)} disabled={isMatrimonioDeleting}>
+                                      {isMatrimonioDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow><TableCell colSpan={6} className="text-center">No se encontraron resultados. Realiza una búsqueda.</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
               </Card>
             </TabsContent>
+
+            {/* ======================================= */}
+            {/* === PANEL DE DEFUNCIONES === */}
+            {/* ======================================= */}
             <TabsContent value="defuncion">
               <Card>
-                <CardHeader><CardTitle>Gestión de Defunciones</CardTitle></CardHeader>
-                <CardContent><p>Aquí irá la interfaz para el CRUD de Defunciones.</p></CardContent>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Registros de Defunción</CardTitle>
+                      <CardDescription>Busca, crea, edita o elimina registros de defunción.</CardDescription>
+                    </div>
+                    <Dialog open={isCreateDefuncionModalOpen} onOpenChange={setIsCreateDefuncionModalOpen}>
+                      <DialogTrigger asChild>
+                        <Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Defunción</Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-3xl">
+                        <DialogHeader><DialogTitle>Registrar Nueva Defunción</DialogTitle></DialogHeader>
+                        <FormularioDefuncion onSuccess={handleDefuncionFormSuccess} />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleDefuncionSearch} className="flex items-center space-x-2 mb-4">
+                    <Search className="w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por Número de Documento..."
+                      value={defuncionSearchTerm}
+                      onChange={(e) => setDefuncionSearchTerm(e.target.value)}
+                      className="max-w-sm"
+                    />
+                    <Button type="submit" disabled={isDefuncionLoading}>
+                      {isDefuncionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}
+                    </Button>
+                  </form>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead>Documento</TableHead>
+                        <TableHead>Fecha Defunción</TableHead>
+                        <TableHead>Estado Civil</TableHead>
+                        <TableHead>Cementerio</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isDefuncionLoading ? (
+                        <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...</TableCell></TableRow>
+                      ) : defuncionSearchResults.length > 0 ? (
+                        defuncionSearchResults.map((d) => (
+                          <TableRow key={d._id}>
+                            <TableCell>{d.dead.name} {d.dead.lastName}</TableCell>
+                            <TableCell>{d.dead.documentNumber}</TableCell>
+                            <TableCell>{new Date(d.deathDate).toLocaleDateString()}</TableCell>
+                            <TableCell>{d.civilStatus}</TableCell>
+                            <TableCell>{d.cemeteryName}</TableCell>
+                            <TableCell className="text-right space-x-2">
+                              <Dialog open={editingDefuncion?._id === d._id} onOpenChange={(isOpen) => !isOpen && setEditingDefuncion(null)}>
+                                <DialogTrigger asChild><Button variant="outline" size="sm" onClick={() => setEditingDefuncion(d)}><Edit className="w-4 h-4" /></Button></DialogTrigger>
+                                <DialogContent className="sm:max-w-3xl">
+                                  <DialogHeader><DialogTitle>Editar Registro de Defunción</DialogTitle></DialogHeader>
+                                  {editingDefuncion && (
+                                    <FormularioDefuncion
+                                      onSuccess={handleDefuncionFormSuccess}
+                                      defaultValues={{
+                                        documentNumber: editingDefuncion.dead.documentNumber,
+                                        deathDate: new Date(editingDefuncion.deathDate).toISOString().split('T')[0],
+                                        fatherName: editingDefuncion.fatherName,
+                                        motherName: editingDefuncion.motherName,
+                                        civilStatus: editingDefuncion.civilStatus,
+                                        cemeteryName: editingDefuncion.cemeteryName,
+                                        funeralDate: editingDefuncion.funeralDate ? new Date(editingDefuncion.funeralDate).toISOString().split('T')[0] : "",
+                                      }}
+                                    />
+                                  )}
+                                </DialogContent>
+                              </Dialog>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription>Se eliminará el registro de: <strong className="py-2 block">{d.dead.name} {d.dead.lastName}</strong>. Esta acción es permanente.</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDefuncionDelete(d.dead.documentNumber)} disabled={isDefuncionDeleting}>
+                                      {isDefuncionDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow><TableCell colSpan={6} className="text-center">No se encontraron resultados. Realiza una búsqueda.</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
               </Card>
             </TabsContent>
+
           </Tabs>
         </div>
       </main>
