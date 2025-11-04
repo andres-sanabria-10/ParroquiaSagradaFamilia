@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react" // Corregí el error del *
+import { useState, useEffect } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -189,80 +189,83 @@ export default function SolicitudMisasFeligres() {
               <p className="text-muted-foreground">Solicita una misa para tus intenciones.</p>
             </div>
 
-            {/* ========================================================== */}
-            {/* ✨ CAMBIO 1: Eliminamos 'max-w-4xl' para que ocupe todo el ancho */}
-            {/* ========================================================== */}
+            {/* Tarjeta principal que ocupa todo el ancho */}
             <Card>
-              <CardHeader className="text-center"> {/* Centramos el título */}
+              <CardHeader>
                 <CardTitle>Programa tu Misa</CardTitle>
                 <CardDescription>Sigue los 3 pasos para completar tu solicitud.</CardDescription>
               </CardHeader>
-              {/* ====================================================================== */}
-              {/* ✨ CAMBIO 2: Reemplazamos 'grid' por 'flex-col' para un flujo vertical */}
-              {/* ====================================================================== */}
-              <CardContent className="flex flex-col items-center space-y-8 p-6">
+
+              {/* ========================================================== */}
+              {/* ✨ CAMBIO 1: Volvemos a la cuadrícula de 2 columnas */}
+              {/* ========================================================== */}
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
                 
-                {/* --- PASO 1: CALENDARIO (Centrado) --- */}
-                <div className="space-y-4 flex flex-col items-center">
-                  <Label className="text-lg font-medium">Paso 1: Selecciona la fecha</Label>
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateSelect}
-                    onMonthChange={setCurrentMonth}
-                    disabled={(date) => date < addDays(new Date(), -1)}
-                    modifiers={{ available: availableDays }}
-                    modifiersClassNames={{
-                      available: "bg-primary/20 text-primary rounded-full font-bold",
-                    }}
-                    className="rounded-md border"
-                  />
-                  <div className="flex items-center text-sm text-muted-foreground">
+                {/* --- COLUMNA 1: CALENDARIO --- */}
+                <div className="space-y-4">
+                  <Label className="text-lg font-medium text-center block">Paso 1: Selecciona la fecha</Label>
+                  
+                  {/* ========================================================== */}
+                  {/* ✨ CAMBIO 2: Centramos y escalamos el calendario */}
+                  {/* ========================================================== */}
+                  <div className="flex justify-center items-center pt-8">
+                    <div className="scale-125">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={handleDateSelect}
+                        onMonthChange={setCurrentMonth}
+                        disabled={(date) => date < addDays(new Date(), -1)}
+                        modifiers={{ available: availableDays }}
+                        modifiersClassNames={{
+                          available: "bg-primary/20 text-primary rounded-full font-bold",
+                        }}
+                        className="rounded-md border"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-center text-sm text-muted-foreground pt-8">
                     <span className="w-3 h-3 rounded-full bg-primary/20 mr-2"></span>
                     Días con horarios disponibles
                   </div>
                 </div>
 
-                {/* --- PASO 2 y 3: HORARIOS E INTENCIÓN --- */}
-                {/* ✨ CAMBIO 3: Limitamos el ancho de los siguientes pasos para que no se estiren */}
-                <div className="w-full max-w-lg space-y-6">
+                {/* --- COLUMNA 2: PASO 2 y 3 --- */}
+                <div className="space-y-6">
 
                   {/* --- PASO 2: HORARIOS --- */}
-                  {/* Esta sección solo aparece si se ha seleccionado una fecha */}
-                  {selectedDate && (
-                    <div className="space-y-4 animate-in fade-in-50 duration-300">
-                      <Label className="text-lg font-medium">Paso 2: Selecciona la hora</Label>
-                      {isLoadingTimes && (
-                        <div className="flex items-center text-muted-foreground">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Cargando horarios...
-                        </div>
-                      )}
-                      {!isLoadingTimes && availableTimes.length === 0 && (
-                        <p className="text-sm text-center text-destructive py-4">
-                          No hay horarios disponibles para este día. Por favor, selecciona otra fecha.
-                        </p>
-                      )}
-                      {availableTimes.length > 0 && (
-                        <ToggleGroup
-                          type="single"
-                          variant="outline"
-                          value={selectedTime}
-                          onValueChange={(value) => value && setSelectedTime(value)}
-                          className="grid grid-cols-3 sm:grid-cols-4 gap-2"
-                        >
-                          {availableTimes.map((time) => (
-                            <ToggleGroupItem key={time} value={time}>
-                              {time}
-                            </ToggleGroupItem>
-                          ))}
-                        </ToggleGroup>
-                      )}
-                    </div>
-                  )}
+                  <div className="space-y-4">
+                    <Label className="text-lg font-medium">Paso 2: Selecciona la hora</Label>
+                    {!selectedDate && (
+                      <p className="text-sm text-muted-foreground">Selecciona un día del calendario.</p>
+                    )}
+                    {isLoadingTimes && (
+                      <div className="flex items-center text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Cargando horarios...
+                      </div>
+                    )}
+                    {!isLoadingTimes && selectedDate && availableTimes.length === 0 && (
+                      <p className="text-sm text-destructive">No hay horarios disponibles para este día.</p>
+                    )}
+                    {availableTimes.length > 0 && (
+                      <ToggleGroup
+                        type="single"
+                        variant="outline"
+                        value={selectedTime}
+                        onValueChange={(value) => value && setSelectedTime(value)}
+                        className="grid grid-cols-3 sm:grid-cols-4 gap-2"
+                      >
+                        {availableTimes.map((time) => (
+                          <ToggleGroupItem key={time} value={time}>
+                            {time}
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                    )}
+                  </div>
 
                   {/* --- PASO 3: INTENCIÓN --- */}
-                  {/* Esta sección solo aparece si se ha seleccionado una hora */}
                   {selectedTime && (
                     <div className="space-y-4 animate-in fade-in-50 duration-300">
                       <Label htmlFor="intention" className="text-lg font-medium">Paso 3: Escribe tu intención</Label>
@@ -298,7 +301,6 @@ export default function SolicitudMisasFeligres() {
             <p className="text-muted-foreground mb-4">
               Para confirmar y aprobar tu solicitud, por favor comunícate a nuestro WhatsApp y realiza el pago respectivo.
             </p>
-            {/* Asumimos que la imagen QR está en la carpeta /public/img/ */}
             <img 
               src="/img/QR.png" 
               alt="Código QR de pago" 
