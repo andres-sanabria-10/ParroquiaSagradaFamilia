@@ -1,11 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react" // Corregí el error del *
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar } from "@/components/ui/calendar" // Importamos el calendario
+import { Calendar } from "@/components/ui/calendar"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog"
 import { ClipboardList, Calendar as CalendarIcon, History, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns" // Para manejar fechas
+import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns"
 
 // --- Sidebar ---
 const sidebarItems = [
@@ -77,7 +77,7 @@ export default function SolicitudMisasFeligres() {
     today.setHours(0, 0, 0, 0); // Ignorar la hora para la comparación
 
     const promises = daysInMonth
-      .filter(day => day >= today) // Solo verificar días desde hoy en adelante
+      .filter(day => day >= today) 
       .map(day => {
         const dateString = formatDateForAPI(day)
         return fetch(`${API_URL}/massSchedule/time-slots?date=${dateString}`, {
@@ -86,11 +86,11 @@ export default function SolicitudMisasFeligres() {
           .then(res => res.json())
           .then(data => {
             if (data.timeSlots && data.timeSlots.some((slot: TimeSlot) => slot.available)) {
-              return day // Si hay al menos un slot, marcamos el día
+              return day 
             }
             return null
           })
-          .catch(() => null) // Ignorar errores de días individuales
+          .catch(() => null) 
       })
     
     const results = (await Promise.all(promises)).filter(d => d !== null) as Date[]
@@ -149,7 +149,7 @@ export default function SolicitudMisasFeligres() {
       const res = await fetch(`${API_URL}/requestMass`, {
         method: 'POST',
         headers: { "Content-Type": "application/json" },
-        credentials: 'include', // Usamos cookies
+        credentials: 'include',
         body: JSON.stringify({
           date: formatDateForAPI(selectedDate),
           time: selectedTime,
@@ -162,7 +162,6 @@ export default function SolicitudMisasFeligres() {
         throw new Error(err.error || "No se pudo enviar la solicitud")
       }
       
-      // No usamos toast.success, en su lugar, mostramos el modal de éxito
       setShowSuccessModal(true)
       
       // Resetear el formulario
@@ -170,7 +169,7 @@ export default function SolicitudMisasFeligres() {
       setAvailableTimes([])
       setSelectedTime("")
       setIntention("")
-      fetchAvailableDays(currentMonth) // Recargar días disponibles
+      fetchAvailableDays(currentMonth) 
 
     } catch (error: any) {
       toast.error("Error al enviar", { description: error.message })
@@ -190,30 +189,34 @@ export default function SolicitudMisasFeligres() {
               <p className="text-muted-foreground">Solicita una misa para tus intenciones.</p>
             </div>
 
-            <Card className="max-w-4xl">
-              <CardHeader>
+            {/* ========================================================== */}
+            {/* ✨ CAMBIO 1: Eliminamos 'max-w-4xl' para que ocupe todo el ancho */}
+            {/* ========================================================== */}
+            <Card>
+              <CardHeader className="text-center"> {/* Centramos el título */}
                 <CardTitle>Programa tu Misa</CardTitle>
                 <CardDescription>Sigue los 3 pasos para completar tu solicitud.</CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
+              {/* ====================================================================== */}
+              {/* ✨ CAMBIO 2: Reemplazamos 'grid' por 'flex-col' para un flujo vertical */}
+              {/* ====================================================================== */}
+              <CardContent className="flex flex-col items-center space-y-8 p-6">
                 
-                {/* --- PASO 1: CALENDARIO --- */}
-                <div className="space-y-4">
+                {/* --- PASO 1: CALENDARIO (Centrado) --- */}
+                <div className="space-y-4 flex flex-col items-center">
                   <Label className="text-lg font-medium">Paso 1: Selecciona la fecha</Label>
-                  <div className="flex justify-center">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateSelect}
-                      onMonthChange={setCurrentMonth} // Para recargar los días disponibles
-                      disabled={(date) => date < addDays(new Date(), -1)} // Deshabilitar días pasados
-                      modifiers={{ available: availableDays }} // Días disponibles
-                      modifiersClassNames={{
-                        available: "bg-primary/20 text-primary-foreground rounded-full",
-                      }}
-                      className="rounded-md border"
-                    />
-                  </div>
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={handleDateSelect}
+                    onMonthChange={setCurrentMonth}
+                    disabled={(date) => date < addDays(new Date(), -1)}
+                    modifiers={{ available: availableDays }}
+                    modifiersClassNames={{
+                      available: "bg-primary/20 text-primary rounded-full font-bold",
+                    }}
+                    className="rounded-md border"
+                  />
                   <div className="flex items-center text-sm text-muted-foreground">
                     <span className="w-3 h-3 rounded-full bg-primary/20 mr-2"></span>
                     Días con horarios disponibles
@@ -221,40 +224,45 @@ export default function SolicitudMisasFeligres() {
                 </div>
 
                 {/* --- PASO 2 y 3: HORARIOS E INTENCIÓN --- */}
-                <div className="space-y-6">
+                {/* ✨ CAMBIO 3: Limitamos el ancho de los siguientes pasos para que no se estiren */}
+                <div className="w-full max-w-lg space-y-6">
+
                   {/* --- PASO 2: HORARIOS --- */}
-                  <div className="space-y-4">
-                    <Label className="text-lg font-medium">Paso 2: Selecciona la hora</Label>
-                    {isLoadingTimes && (
-                      <div className="flex items-center text-muted-foreground">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Cargando horarios...
-                      </div>
-                    )}
-                    {!isLoadingTimes && !selectedDate && (
-                      <p className="text-sm text-muted-foreground">Selecciona un día del calendario.</p>
-                    )}
-                    {!isLoadingTimes && selectedDate && availableTimes.length === 0 && (
-                      <p className="text-sm text-destructive">No hay horarios disponibles para este día.</p>
-                    )}
-                    {availableTimes.length > 0 && (
-                      <ToggleGroup
-                        type="single"
-                        variant="outline"
-                        value={selectedTime}
-                        onValueChange={(value) => value && setSelectedTime(value)}
-                        className="grid grid-cols-3 sm:grid-cols-4 gap-2"
-                      >
-                        {availableTimes.map((time) => (
-                          <ToggleGroupItem key={time} value={time}>
-                            {time}
-                          </ToggleGroupItem>
-                        ))}
-                      </ToggleGroup>
-                    )}
-                  </div>
+                  {/* Esta sección solo aparece si se ha seleccionado una fecha */}
+                  {selectedDate && (
+                    <div className="space-y-4 animate-in fade-in-50 duration-300">
+                      <Label className="text-lg font-medium">Paso 2: Selecciona la hora</Label>
+                      {isLoadingTimes && (
+                        <div className="flex items-center text-muted-foreground">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Cargando horarios...
+                        </div>
+                      )}
+                      {!isLoadingTimes && availableTimes.length === 0 && (
+                        <p className="text-sm text-center text-destructive py-4">
+                          No hay horarios disponibles para este día. Por favor, selecciona otra fecha.
+                        </p>
+                      )}
+                      {availableTimes.length > 0 && (
+                        <ToggleGroup
+                          type="single"
+                          variant="outline"
+                          value={selectedTime}
+                          onValueChange={(value) => value && setSelectedTime(value)}
+                          className="grid grid-cols-3 sm:grid-cols-4 gap-2"
+                        >
+                          {availableTimes.map((time) => (
+                            <ToggleGroupItem key={time} value={time}>
+                              {time}
+                            </ToggleGroupItem>
+                          ))}
+                        </ToggleGroup>
+                      )}
+                    </div>
+                  )}
 
                   {/* --- PASO 3: INTENCIÓN --- */}
+                  {/* Esta sección solo aparece si se ha seleccionado una hora */}
                   {selectedTime && (
                     <div className="space-y-4 animate-in fade-in-50 duration-300">
                       <Label htmlFor="intention" className="text-lg font-medium">Paso 3: Escribe tu intención</Label>
