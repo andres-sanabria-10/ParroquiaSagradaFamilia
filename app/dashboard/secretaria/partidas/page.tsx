@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Table,
   TableBody,
@@ -20,6 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogClose,
 } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -49,6 +52,7 @@ import {
   Trash2,
   PlusCircle,
   Loader2,
+  Send,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -94,7 +98,6 @@ interface UserInfo {
   documentNumber: string
   mail: string
 }
-
 interface Bautismo {
   _id: string
   baptized: UserInfo
@@ -105,7 +108,6 @@ interface Bautismo {
   godfather1: string
   godfather2?: string
 }
-
 interface Confirmacion {
   _id: string
   confirmed: UserInfo
@@ -115,7 +117,6 @@ interface Confirmacion {
   godfather: string
   baptizedParish?: string
 }
-
 interface Matrimonio {
   _id: string
   husband: UserInfo
@@ -130,7 +131,6 @@ interface Matrimonio {
   witness1: string
   witness2: string
 }
-
 interface Defuncion {
   _id: string
   dead: UserInfo
@@ -144,7 +144,7 @@ interface Defuncion {
 
 
 export default function GestionPartidasSecretaria() {
-  // --- Estados para BAUTISMOS ---
+  // --- Estados de Bautismo ---
   const [bautismoSearchTerm, setBautismoSearchTerm] = useState("")
   const [bautismoSearchResults, setBautismoSearchResults] = useState<Bautismo[]>([])
   const [isBautismoLoading, setIsBautismoLoading] = useState(false)
@@ -152,7 +152,7 @@ export default function GestionPartidasSecretaria() {
   const [isCreateBautismoModalOpen, setIsCreateBautismoModalOpen] = useState(false)
   const [editingBautismo, setEditingBautismo] = useState<Bautismo | null>(null)
 
-  // --- Estados para CONFIRMACIONES ---
+  // --- Estados de Confirmacion ---
   const [confirmacionSearchTerm, setConfirmacionSearchTerm] = useState("")
   const [confirmacionSearchResults, setConfirmacionSearchResults] = useState<Confirmacion[]>([])
   const [isConfirmacionLoading, setIsConfirmacionLoading] = useState(false)
@@ -160,7 +160,7 @@ export default function GestionPartidasSecretaria() {
   const [isCreateConfirmacionModalOpen, setIsCreateConfirmacionModalOpen] = useState(false)
   const [editingConfirmacion, setEditingConfirmacion] = useState<Confirmacion | null>(null)
 
-  // --- Estados para MATRIMONIOS ---
+  // --- Estados de Matrimonio ---
   const [matrimonioSearchTerm, setMatrimonioSearchTerm] = useState("")
   const [matrimonioSearchResults, setMatrimonioSearchResults] = useState<Matrimonio[]>([])
   const [isMatrimonioLoading, setIsMatrimonioLoading] = useState(false)
@@ -168,7 +168,7 @@ export default function GestionPartidasSecretaria() {
   const [isCreateMatrimonioModalOpen, setIsCreateMatrimonioModalOpen] = useState(false)
   const [editingMatrimonio, setEditingMatrimonio] = useState<Matrimonio | null>(null)
 
-  // --- Estados para DEFUNCIONES ---
+  // --- Estados de Defuncion ---
   const [defuncionSearchTerm, setDefuncionSearchTerm] = useState("")
   const [defuncionSearchResults, setDefuncionSearchResults] = useState<Defuncion[]>([])
   const [isDefuncionLoading, setIsDefuncionLoading] = useState(false)
@@ -176,11 +176,10 @@ export default function GestionPartidasSecretaria() {
   const [isCreateDefuncionModalOpen, setIsCreateDefuncionModalOpen] = useState(false)
   const [editingDefuncion, setEditingDefuncion] = useState<Defuncion | null>(null)
 
-
   // --- API Base URL ---
   const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
 
-  // --- Lógica para BAUTISMOS ---
+  // --- Lógica de BAUTISMOS (sin cambios) ---
   const handleBautismoSearch = async (e?: React.FormEvent) => {
     e?.preventDefault(); if (!bautismoSearchTerm) return;
     setIsBautismoLoading(true); setBautismoSearchResults([]);
@@ -206,7 +205,7 @@ export default function GestionPartidasSecretaria() {
     if (bautismoSearchTerm) handleBautismoSearch();
   }
 
-  // --- Lógica para CONFIRMACIONES ---
+  // --- Lógica de CONFIRMACIONES (sin cambios) ---
   const handleConfirmacionSearch = async (e?: React.FormEvent) => {
     e?.preventDefault(); if (!confirmacionSearchTerm) return;
     setIsConfirmacionLoading(true); setConfirmacionSearchResults([]);
@@ -232,7 +231,7 @@ export default function GestionPartidasSecretaria() {
     if (confirmacionSearchTerm) handleConfirmacionSearch();
   }
 
-  // --- Lógica para MATRIMONIOS ---
+  // --- Lógica de MATRIMONIOS (sin cambios) ---
   const handleMatrimonioSearch = async (e?: React.FormEvent) => {
     e?.preventDefault(); if (!matrimonioSearchTerm) return;
     setIsMatrimonioLoading(true); setMatrimonioSearchResults([]);
@@ -258,7 +257,7 @@ export default function GestionPartidasSecretaria() {
     if (matrimonioSearchTerm) handleMatrimonioSearch();
   }
 
-  // --- Lógica para DEFUNCIONES ---
+  // --- Lógica de DEFUNCIONES (sin cambios) ---
   const handleDefuncionSearch = async (e?: React.FormEvent) => {
     e?.preventDefault(); if (!defuncionSearchTerm) return;
     setIsDefuncionLoading(true); setDefuncionSearchResults([]);
@@ -315,42 +314,18 @@ export default function GestionPartidasSecretaria() {
                       <CardDescription>Busca, crea, edita o elimina registros de bautismo.</CardDescription>
                     </div>
                     <Dialog open={isCreateBautismoModalOpen} onOpenChange={setIsCreateBautismoModalOpen}>
-                      <DialogTrigger asChild>
-                        <Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Bautismo</Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-3xl">
-                        <DialogHeader>
-                          <DialogTitle>Registrar Nuevo Bautismo</DialogTitle>
-                        </DialogHeader>
-                        <FormularioBautismo onSuccess={handleBautismoFormSuccess} />
-                      </DialogContent>
+                      <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Bautismo</Button></DialogTrigger>
+                      <DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>Registrar Nuevo Bautismo</DialogTitle></DialogHeader><FormularioBautismo onSuccess={handleBautismoFormSuccess} /></DialogContent>
                     </Dialog>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleBautismoSearch} className="flex items-center space-x-2 mb-4">
-                    <Search className="w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por Número de Documento..."
-                      value={bautismoSearchTerm}
-                      onChange={(e) => setBautismoSearchTerm(e.target.value)}
-                      className="max-w-sm"
-                    />
-                    <Button type="submit" disabled={isBautismoLoading}>
-                      {isBautismoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}
-                    </Button>
+                    <Search className="w-4 h-4 text-muted-foreground" /><Input placeholder="Buscar por Número de Documento..." value={bautismoSearchTerm} onChange={(e) => setBautismoSearchTerm(e.target.value)} className="max-w-sm" />
+                    <Button type="submit" disabled={isBautismoLoading}>{isBautismoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}</Button>
                   </form>
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead>Documento</TableHead>
-                        <TableHead>Fecha Bautismo</TableHead>
-                        <TableHead>Padre</TableHead>
-                        <TableHead>Madre</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Documento</TableHead><TableHead>Fecha Bautismo</TableHead><TableHead>Padre</TableHead><TableHead>Madre</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {isBautismoLoading ? (
                         <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...</TableCell></TableRow>
@@ -363,38 +338,31 @@ export default function GestionPartidasSecretaria() {
                             <TableCell>{b.fatherName}</TableCell>
                             <TableCell>{b.motherName}</TableCell>
                             <TableCell className="text-right space-x-2">
+                              {/* --- ✨ 3. Componente de Enviar Correo (Bautismo) --- */}
+                              <SendEmailDialog
+                                recordType="baptism"
+                                recordTypeName="Bautismo"
+                                documentNumber={b.baptized.documentNumber}
+                                recordName={`${b.baptized.name} ${b.baptized.lastName}`}
+                                defaultEmail={b.baptized.mail}
+                                apiBaseUrl={API_URL}
+                              />
+                              {/* --- Botón Editar (sin cambios) --- */}
                               <Dialog open={editingBautismo?._id === b._id} onOpenChange={(isOpen) => !isOpen && setEditingBautismo(null)}>
                                 <DialogTrigger asChild><Button variant="outline" size="sm" onClick={() => setEditingBautismo(b)}><Edit className="w-4 h-4" /></Button></DialogTrigger>
                                 <DialogContent className="sm:max-w-3xl">
                                   <DialogHeader><DialogTitle>Editar Registro de Bautismo</DialogTitle></DialogHeader>
-                                  {editingBautismo && (
-                                    <FormularioBautismo
-                                      onSuccess={handleBautismoFormSuccess}
-                                      defaultValues={{
-                                        documentNumber: editingBautismo.baptized.documentNumber,
-                                        baptismDate: new Date(editingBautismo.baptismDate).toISOString().split('T')[0],
-                                        placeBirth: editingBautismo.placeBirth,
-                                        fatherName: editingBautismo.fatherName,
-                                        motherName: editingBautismo.motherName,
-                                        godfather1: editingBautismo.godfather1,
-                                        godfather2: editingBautismo.godfather2 || "",
-                                      }}
-                                    />
-                                  )}
+                                  {editingBautismo && <FormularioBautismo onSuccess={handleBautismoFormSuccess} defaultValues={{ documentNumber: editingBautismo.baptized.documentNumber, baptismDate: new Date(editingBautismo.baptismDate).toISOString().split('T')[0], placeBirth: editingBautismo.placeBirth, fatherName: editingBautismo.fatherName, motherName: editingBautismo.motherName, godfather1: editingBautismo.godfather1, godfather2: editingBautismo.godfather2 || "", }} />}
                                 </DialogContent>
                               </Dialog>
+                              {/* --- Botón Eliminar (sin cambios) --- */}
                               <AlertDialog>
                                 <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
                                 <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                    <AlertDialogDescription>Se eliminará el registro de: <strong className="py-2 block">{b.baptized.name} {b.baptized.lastName}</strong>. Esta acción es permanente.</AlertDialogDescription>
-                                  </AlertDialogHeader>
+                                  <AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle><AlertDialogDescription>Se eliminará el registro de: <strong className="py-2 block">{b.baptized.name} {b.baptized.lastName}</strong>. Esta acción es permanente.</AlertDialogDescription></AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleBautismoDelete(b.baptized.documentNumber)} disabled={isBautismoDeleting}>
-                                      {isBautismoDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}
-                                    </AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleBautismoDelete(b.baptized.documentNumber)} disabled={isBautismoDeleting}>{isBautismoDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -417,46 +385,20 @@ export default function GestionPartidasSecretaria() {
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle>Registros de Confirmación</CardTitle>
-                      <CardDescription>Busca, crea, edita o elimina registros de confirmación.</CardDescription>
-                    </div>
+                    <div><CardTitle>Registros de Confirmación</CardTitle><CardDescription>Busca, crea, edita o elimina registros de confirmación.</CardDescription></div>
                     <Dialog open={isCreateConfirmacionModalOpen} onOpenChange={setIsCreateConfirmacionModalOpen}>
-                      <DialogTrigger asChild>
-                        <Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Confirmación</Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-3xl">
-                        <DialogHeader><DialogTitle>Registrar Nueva Confirmación</DialogTitle></DialogHeader>
-                        <FormularioConfirmacion onSuccess={handleConfirmacionFormSuccess} />
-                      </DialogContent>
+                      <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Confirmación</Button></DialogTrigger>
+                      <DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>Registrar Nueva Confirmación</DialogTitle></DialogHeader><FormularioConfirmacion onSuccess={handleConfirmacionFormSuccess} /></DialogContent>
                     </Dialog>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleConfirmacionSearch} className="flex items-center space-x-2 mb-4">
-                    <Search className="w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por Número de Documento..."
-                      value={confirmacionSearchTerm}
-                      onChange={(e) => setConfirmacionSearchTerm(e.target.value)}
-                      className="max-w-sm"
-                    />
-                    <Button type="submit" disabled={isConfirmacionLoading}>
-                      {isConfirmacionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}
-                    </Button>
+                    <Search className="w-4 h-4 text-muted-foreground" /><Input placeholder="Buscar por Número de Documento..." value={confirmacionSearchTerm} onChange={(e) => setConfirmacionSearchTerm(e.target.value)} className="max-w-sm" />
+                    <Button type="submit" disabled={isConfirmacionLoading}>{isConfirmacionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}</Button>
                   </form>
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead>Documento</TableHead>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Padre</TableHead>
-                        <TableHead>Madre</TableHead>
-                        <TableHead>Padrino</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Documento</TableHead><TableHead>Fecha</TableHead><TableHead>Padre</TableHead><TableHead>Madre</TableHead><TableHead>Padrino</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {isConfirmacionLoading ? (
                         <TableRow><TableCell colSpan={7} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...</TableCell></TableRow>
@@ -470,37 +412,29 @@ export default function GestionPartidasSecretaria() {
                             <TableCell>{c.motherName}</TableCell>
                             <TableCell>{c.godfather}</TableCell>
                             <TableCell className="text-right space-x-2">
+                              {/* --- ✨ 4. Componente de Enviar Correo (Confirmación) --- */}
+                              <SendEmailDialog
+                                recordType="confirmation"
+                                recordTypeName="Confirmación"
+                                documentNumber={c.confirmed.documentNumber}
+                                recordName={`${c.confirmed.name} ${c.confirmed.lastName}`}
+                                defaultEmail={c.confirmed.mail}
+                                apiBaseUrl={API_URL}
+                              />
                               <Dialog open={editingConfirmacion?._id === c._id} onOpenChange={(isOpen) => !isOpen && setEditingConfirmacion(null)}>
                                 <DialogTrigger asChild><Button variant="outline" size="sm" onClick={() => setEditingConfirmacion(c)}><Edit className="w-4 h-4" /></Button></DialogTrigger>
                                 <DialogContent className="sm:max-w-3xl">
                                   <DialogHeader><DialogTitle>Editar Registro de Confirmación</DialogTitle></DialogHeader>
-                                  {editingConfirmacion && (
-                                    <FormularioConfirmacion
-                                      onSuccess={handleConfirmacionFormSuccess}
-                                      defaultValues={{
-                                        documentNumber: editingConfirmacion.confirmed.documentNumber,
-                                        confirmationDate: new Date(editingConfirmacion.confirmationDate).toISOString().split('T')[0],
-                                        fatherName: editingConfirmacion.fatherName,
-                                        motherName: editingConfirmacion.motherName,
-                                        godfather: editingConfirmacion.godfather,
-                                        baptizedParish: editingConfirmacion.baptizedParish || "",
-                                      }}
-                                    />
-                                  )}
+                                  {editingConfirmacion && <FormularioConfirmacion onSuccess={handleConfirmacionFormSuccess} defaultValues={{ documentNumber: editingConfirmacion.confirmed.documentNumber, confirmationDate: new Date(editingConfirmacion.confirmationDate).toISOString().split('T')[0], fatherName: editingConfirmacion.fatherName, motherName: editingConfirmacion.motherName, godfather: editingConfirmacion.godfather, baptizedParish: editingConfirmacion.baptizedParish || "", }} />}
                                 </DialogContent>
                               </Dialog>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
                                 <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                    <AlertDialogDescription>Se eliminará el registro de: <strong className="py-2 block">{c.confirmed.name} {c.confirmed.lastName}</strong>. Esta acción es permanente.</AlertDialogDescription>
-                                  </AlertDialogHeader>
+                                  <AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle><AlertDialogDescription>Se eliminará el registro de: <strong className="py-2 block">{c.confirmed.name} {c.confirmed.lastName}</strong>. Esta acción es permanente.</AlertDialogDescription></AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleConfirmacionDelete(c.confirmed.documentNumber)} disabled={isConfirmacionDeleting}>
-                                      {isConfirmacionDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}
-                                    </AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleConfirmacionDelete(c.confirmed.documentNumber)} disabled={isConfirmacionDeleting}>{isConfirmacionDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -523,45 +457,20 @@ export default function GestionPartidasSecretaria() {
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle>Registros de Matrimonio</CardTitle>
-                      <CardDescription>Busca, crea, edita o elimina registros de matrimonio.</CardDescription>
-                    </div>
+                    <div><CardTitle>Registros de Matrimonio</CardTitle><CardDescription>Busca, crea, edita o elimina registros de matrimonio.</CardDescription></div>
                     <Dialog open={isCreateMatrimonioModalOpen} onOpenChange={setIsCreateMatrimonioModalOpen}>
-                      <DialogTrigger asChild>
-                        <Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Matrimonio</Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-3xl">
-                        <DialogHeader><DialogTitle>Registrar Nuevo Matrimonio</DialogTitle></DialogHeader>
-                        <FormularioMatrimonio onSuccess={handleMatrimonioFormSuccess} />
-                      </DialogContent>
+                      <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Matrimonio</Button></DialogTrigger>
+                      <DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>Registrar Nuevo Matrimonio</DialogTitle></DialogHeader><FormularioMatrimonio onSuccess={handleMatrimonioFormSuccess} /></DialogContent>
                     </Dialog>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleMatrimonioSearch} className="flex items-center space-x-2 mb-4">
-                    <Search className="w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por DNI (esposo o esposa)..."
-                      value={matrimonioSearchTerm}
-                      onChange={(e) => setMatrimonioSearchTerm(e.target.value)}
-                      className="max-w-sm"
-                    />
-                    <Button type="submit" disabled={isMatrimonioLoading}>
-                      {isMatrimonioLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}
-                    </Button>
+                    <Search className="w-4 h-4 text-muted-foreground" /><Input placeholder="Buscar por DNI (esposo o esposa)..." value={matrimonioSearchTerm} onChange={(e) => setMatrimonioSearchTerm(e.target.value)} className="max-w-sm" />
+                    <Button type="submit" disabled={isMatrimonioLoading}>{isMatrimonioLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}</Button>
                   </form>
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Esposo</TableHead>
-                        <TableHead>Esposa</TableHead>
-                        <TableHead>Fecha Matrimonio</TableHead>
-                        <TableHead>Padrino 1</TableHead>
-                        <TableHead>Padrino 2</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Esposo</TableHead><TableHead>Esposa</TableHead><TableHead>Fecha Matrimonio</TableHead><TableHead>Padrino 1</TableHead><TableHead>Padrino 2</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {isMatrimonioLoading ? (
                         <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...</TableCell></TableRow>
@@ -574,42 +483,29 @@ export default function GestionPartidasSecretaria() {
                             <TableCell>{m.godfather1}</TableCell>
                             <TableCell>{m.godfather2}</TableCell>
                             <TableCell className="text-right space-x-2">
+                              {/* --- ✨ 5. Componente de Enviar Correo (Matrimonio) --- */}
+                              <SendEmailDialog
+                                recordType="marriage"
+                                recordTypeName="Matrimonio"
+                                documentNumber={m.husband.documentNumber} // Usamos el DNI del esposo como ID
+                                recordName={`${m.husband.name} y ${m.wife.name}`}
+                                defaultEmail={m.husband.mail || m.wife.mail} // Sugiere el primer email que encuentre
+                                apiBaseUrl={API_URL}
+                              />
                               <Dialog open={editingMatrimonio?._id === m._id} onOpenChange={(isOpen) => !isOpen && setEditingMatrimonio(null)}>
                                 <DialogTrigger asChild><Button variant="outline" size="sm" onClick={() => setEditingMatrimonio(m)}><Edit className="w-4 h-4" /></Button></DialogTrigger>
                                 <DialogContent className="sm:max-w-3xl">
                                   <DialogHeader><DialogTitle>Editar Registro de Matrimonio</DialogTitle></DialogHeader>
-                                  {editingMatrimonio && (
-                                    <FormularioMatrimonio
-                                      onSuccess={handleMatrimonioFormSuccess}
-                                      defaultValues={{
-                                        husbandDocumentNumber: editingMatrimonio.husband.documentNumber,
-                                        wifeDocumentNumber: editingMatrimonio.wife.documentNumber,
-                                        marriageDate: new Date(editingMatrimonio.marriageDate).toISOString().split('T')[0],
-                                        father_husband: editingMatrimonio.father_husband || "",
-                                        mother_husband: editingMatrimonio.mother_husband || "",
-                                        father_wife: editingMatrimonio.father_wife || "",
-                                        mother_wife: editingMatrimonio.mother_wife || "",
-                                        godfather1: editingMatrimonio.godfather1,
-                                        godfather2: editingMatrimonio.godfather2,
-                                        witness1: editingMatrimonio.witness1,
-                                        witness2: editingMatrimonio.witness2,
-                                      }}
-                                    />
-                                  )}
+                                  {editingMatrimonio && <FormularioMatrimonio onSuccess={handleMatrimonioFormSuccess} defaultValues={{ husbandDocumentNumber: editingMatrimonio.husband.documentNumber, wifeDocumentNumber: editingMatrimonio.wife.documentNumber, marriageDate: new Date(editingMatrimonio.marriageDate).toISOString().split('T')[0], father_husband: editingMatrimonio.father_husband || "", mother_husband: editingMatrimonio.mother_husband || "", father_wife: editingMatrimonio.father_wife || "", mother_wife: editingMatrimonio.mother_wife || "", godfather1: editingMatrimonio.godfather1, godfather2: editingMatrimonio.godfather2, witness1: editingMatrimonio.witness1, witness2: editingMatrimonio.witness2, }} />}
                                 </DialogContent>
                               </Dialog>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
                                 <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                    <AlertDialogDescription>Se eliminará el matrimonio de: <strong className="py-2 block">{m.husband.name} y {m.wife.name}</strong>. Esta acción es permanente.</AlertDialogDescription>
-                                  </AlertDialogHeader>
+                                  <AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle><AlertDialogDescription>Se eliminará el matrimonio de: <strong className="py-2 block">{m.husband.name} y {m.wife.name}</strong>. Esta acción es permanente.</AlertDialogDescription></AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleMatrimonioDelete(m.husband.documentNumber)} disabled={isMatrimonioDeleting}>
-                                      {isMatrimonioDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}
-                                    </AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleMatrimonioDelete(m.husband.documentNumber)} disabled={isMatrimonioDeleting}>{isMatrimonioDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -632,45 +528,20 @@ export default function GestionPartidasSecretaria() {
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle>Registros de Defunción</CardTitle>
-                      <CardDescription>Busca, crea, edita o elimina registros de defunción.</CardDescription>
-                    </div>
+                    <div><CardTitle>Registros de Defunción</CardTitle><CardDescription>Busca, crea, edita o elimina registros de defunción.</CardDescription></div>
                     <Dialog open={isCreateDefuncionModalOpen} onOpenChange={setIsCreateDefuncionModalOpen}>
-                      <DialogTrigger asChild>
-                        <Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Defunción</Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-3xl">
-                        <DialogHeader><DialogTitle>Registrar Nueva Defunción</DialogTitle></DialogHeader>
-                        <FormularioDefuncion onSuccess={handleDefuncionFormSuccess} />
-                      </DialogContent>
+                      <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Defunción</Button></DialogTrigger>
+                      <DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>Registrar Nueva Defunción</DialogTitle></DialogHeader><FormularioDefuncion onSuccess={handleDefuncionFormSuccess} /></DialogContent>
                     </Dialog>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleDefuncionSearch} className="flex items-center space-x-2 mb-4">
-                    <Search className="w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por Número de Documento..."
-                      value={defuncionSearchTerm}
-                      onChange={(e) => setDefuncionSearchTerm(e.target.value)}
-                      className="max-w-sm"
-                    />
-                    <Button type="submit" disabled={isDefuncionLoading}>
-                      {isDefuncionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}
-                    </Button>
+                    <Search className="w-4 h-4 text-muted-foreground" /><Input placeholder="Buscar por Número de Documento..." value={defuncionSearchTerm} onChange={(e) => setDefuncionSearchTerm(e.target.value)} className="max-w-sm" />
+                    <Button type="submit" disabled={isDefuncionLoading}>{isDefuncionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Buscar"}</Button>
                   </form>
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead>Documento</TableHead>
-                        <TableHead>Fecha Defunción</TableHead>
-                        <TableHead>Estado Civil</TableHead>
-                        <TableHead>Cementerio</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Documento</TableHead><TableHead>Fecha Defunción</TableHead><TableHead>Estado Civil</TableHead><TableHead>Cementerio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {isDefuncionLoading ? (
                         <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Buscando...</TableCell></TableRow>
@@ -683,38 +554,29 @@ export default function GestionPartidasSecretaria() {
                             <TableCell>{d.civilStatus}</TableCell>
                             <TableCell>{d.cemeteryName}</TableCell>
                             <TableCell className="text-right space-x-2">
+                              {/* --- ✨ 6. Componente de Enviar Correo (Defunción) --- */}
+                              <SendEmailDialog
+                                recordType="death"
+                                recordTypeName="Defunción"
+                                documentNumber={d.dead.documentNumber}
+                                recordName={`${d.dead.name} ${d.dead.lastName}`}
+                                defaultEmail={d.dead.mail}
+                                apiBaseUrl={API_URL}
+                              />
                               <Dialog open={editingDefuncion?._id === d._id} onOpenChange={(isOpen) => !isOpen && setEditingDefuncion(null)}>
                                 <DialogTrigger asChild><Button variant="outline" size="sm" onClick={() => setEditingDefuncion(d)}><Edit className="w-4 h-4" /></Button></DialogTrigger>
                                 <DialogContent className="sm:max-w-3xl">
                                   <DialogHeader><DialogTitle>Editar Registro de Defunción</DialogTitle></DialogHeader>
-                                  {editingDefuncion && (
-                                    <FormularioDefuncion
-                                      onSuccess={handleDefuncionFormSuccess}
-                                      defaultValues={{
-                                        documentNumber: editingDefuncion.dead.documentNumber,
-                                        deathDate: new Date(editingDefuncion.deathDate).toISOString().split('T')[0],
-                                        fatherName: editingDefuncion.fatherName,
-                                        motherName: editingDefuncion.motherName,
-                                        civilStatus: editingDefuncion.civilStatus,
-                                        cemeteryName: editingDefuncion.cemeteryName,
-                                        funeralDate: editingDefuncion.funeralDate ? new Date(editingDefuncion.funeralDate).toISOString().split('T')[0] : "",
-                                      }}
-                                    />
-                                  )}
+                                  {editingDefuncion && <FormularioDefuncion onSuccess={handleDefuncionFormSuccess} defaultValues={{ documentNumber: editingDefuncion.dead.documentNumber, deathDate: new Date(editingDefuncion.deathDate).toISOString().split('T')[0], fatherName: editingDefuncion.fatherName, motherName: editingDefuncion.motherName, civilStatus: editingDefuncion.civilStatus, cemeteryName: editingDefuncion.cemeteryName, funeralDate: editingDefuncion.funeralDate ? new Date(editingDefuncion.funeralDate).toISOString().split('T')[0] : "", }} />}
                                 </DialogContent>
                               </Dialog>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
                                 <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                    <AlertDialogDescription>Se eliminará el registro de: <strong className="py-2 block">{d.dead.name} {d.dead.lastName}</strong>. Esta acción es permanente.</AlertDialogDescription>
-                                  </AlertDialogHeader>
+                                  <AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle><AlertDialogDescription>Se eliminará el registro de: <strong className="py-2 block">{d.dead.name} {d.dead.lastName}</strong>. Esta acción es permanente.</AlertDialogDescription></AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDefuncionDelete(d.dead.documentNumber)} disabled={isDefuncionDeleting}>
-                                      {isDefuncionDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}
-                                    </AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleDefuncionDelete(d.dead.documentNumber)} disabled={isDefuncionDeleting}>{isDefuncionDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, eliminar"}</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -735,4 +597,103 @@ export default function GestionPartidasSecretaria() {
       </main>
     </div>
   )
+}
+
+
+// =====================================================================
+// ✨ 7. NUEVO COMPONENTE INTERNO PARA EL MODAL DE ENVÍO DE CORREO
+// =====================================================================
+interface SendEmailDialogProps {
+  recordType: 'baptism' | 'confirmation' | 'marriage' | 'death';
+  recordTypeName: string;
+  documentNumber: string;
+  recordName: string;
+  defaultEmail: string;
+  apiBaseUrl: string;
+}
+
+function SendEmailDialog({ recordType, recordTypeName, documentNumber, recordName, defaultEmail, apiBaseUrl }: SendEmailDialogProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState(defaultEmail || "");
+
+  // Resetea el email al default cada vez que se abre el modal
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setEmail(defaultEmail || "");
+    }
+    setIsOpen(open);
+  };
+
+  const handleSend = async () => {
+    if (!email) {
+      toast.error("Correo requerido", { description: "Por favor, ingresa una dirección de correo." });
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      // ESTE ES EL NUEVO ENDPOINT QUE DEBES CREAR EN TU BACKEND
+      const res = await fetch(`${apiBaseUrl}/${recordType}/send`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentNumber: documentNumber,
+          sendToEmail: email, // Envía el email ingresado
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || `No se pudo enviar la partida de ${recordTypeName}`);
+      }
+      
+      toast.success("Partida enviada exitosamente", {
+        description: `El registro de ${recordTypeName} fue enviado a ${email}.`,
+      });
+      setIsOpen(false); // Cierra el modal al tener éxito
+
+    } catch (error: any) {
+      toast.error("Error al enviar", { description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Send className="w-4 h-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Enviar Partida de {recordTypeName}</DialogTitle>
+          <DialogDescription>
+            La partida de <strong>{recordName}</strong> se enviará al correo que indiques a continuación.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4 space-y-2">
+          <Label htmlFor="email-to-send">Correo Electrónico</Label>
+          <Input
+            id="email-to-send"
+            type="email"
+            placeholder="Ingresa el correo del solicitante..."
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={isLoading}>Cancelar</Button>
+          </DialogClose>
+          <Button onClick={handleSend} disabled={isLoading}>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, Enviar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
