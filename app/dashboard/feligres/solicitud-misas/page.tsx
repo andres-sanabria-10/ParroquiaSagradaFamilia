@@ -45,7 +45,7 @@ const sidebarItems = [
 
 // --- Constantes y Tipos ---
 const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
-const PROXY_URL = "/api" // 👈 Usar API Routes de Next.js como proxy
+const PROXY_URL = "/api/request-mass" // 👈 Usar API Routes de Next.js como proxy
 
 interface TimeSlot {
   time: string
@@ -172,7 +172,7 @@ export default function SolicitudMisasFeligres() {
         intention: intention
       })
 
-      const res = await fetch(`${PROXY_URL}/requestMass`, {
+      const res = await fetch(PROXY_URL, {
         method: 'POST',
         headers: { 
           "Content-Type": "application/json",
@@ -352,7 +352,7 @@ export default function SolicitudMisasFeligres() {
               Para confirmar y aprobar tu solicitud, por favor comunícate a nuestro WhatsApp y realiza el pago respectivo.
             </p>
             <img 
-              src="/img/QR.png" 
+              src="/qr.png" 
               alt="Código QR de pago" 
               className="w-32 h-32 mx-auto rounded-md border p-1"
             />
