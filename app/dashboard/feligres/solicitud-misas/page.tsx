@@ -172,7 +172,7 @@ export default function SolicitudMisasFeligres() {
         intention: intention
       })
 
-      const res = await fetch(`${API_URL}/requestMass`, {
+      const res = await fetch(`${PROXY_URL}/requestMass`, {
         method: 'POST',
         headers: { 
           "Content-Type": "application/json",
