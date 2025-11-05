@@ -51,17 +51,6 @@ interface TimeSlot {
   available: boolean
 }
 
-// ✨ FUNCIÓN AUXILIAR: Obtener el token almacenado
-const getAuthToken = (): string | null => {
-  // Opción 1: Si guardas el token en localStorage
-  return localStorage.getItem('authToken')
-  
-  // Opción 2: Si usas cookies, puedes leerlas así:
-  // const cookies = document.cookie.split(';')
-  // const tokenCookie = cookies.find(c => c.trim().startsWith('token='))
-  // return tokenCookie ? tokenCookie.split('=')[1] : null
-}
-
 export default function SolicitudMisasFeligres() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [availableDays, setAvailableDays] = useState<Date[]>([])
@@ -145,7 +134,7 @@ export default function SolicitudMisasFeligres() {
     }
   }
 
-  // --- 3. Lógica para enviar la solicitud de misa (CORREGIDA) ---
+  // --- 3. Lógica para enviar la solicitud de misa ---
   const handleSubmit = async () => {
     if (!selectedDate || !selectedTime || !intention) {
       toast.error("Datos incompletos", {
@@ -154,26 +143,15 @@ export default function SolicitudMisasFeligres() {
       return
     }
 
-    // ✨ OBTENER EL TOKEN
-    const token = getAuthToken()
-    
-    if (!token) {
-      toast.error("No autorizado", {
-        description: "No se encontró el token de autenticación. Por favor inicia sesión nuevamente.",
-      })
-      return
-    }
-
     setIsSubmitting(true)
     try {
+      // ✨ Las cookies httpOnly se envían automáticamente con credentials: 'include'
       const res = await fetch(`${API_URL}/requestMass`, {
         method: 'POST',
         headers: { 
-          "Content-Type": "application/json",
-          // ✨ AGREGAR EL HEADER DE AUTORIZACIÓN
-          "Authorization": `Bearer ${token}`
+          "Content-Type": "application/json"
         },
-        credentials: 'include',
+        credentials: 'include', // 👈 Esto envía las cookies automáticamente
         body: JSON.stringify({
           date: formatDateForAPI(selectedDate),
           time: selectedTime,
