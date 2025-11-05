@@ -1,4 +1,3 @@
-"use client"
 
 import type React from "react"
 import { useState, useEffect } from "react"
@@ -45,6 +44,7 @@ const sidebarItems = [
 
 // --- Constantes y Tipos ---
 const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
+const PROXY_URL = "/api" // 👈 Usar API Routes de Next.js como proxy
 
 interface TimeSlot {
   time: string
@@ -101,6 +101,23 @@ export default function SolicitudMisasFeligres() {
     fetchAvailableDays(currentMonth)
   }, [currentMonth])
 
+  // 🔍 Debug: Verificar cookies y hacer test de autenticación
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Test simple para verificar si las cookies se envían
+        const testRes = await fetch(`${API_URL}/massSchedule/time-slots?date=${format(new Date(), 'yyyy-MM-dd')}`, {
+          credentials: 'include',
+        })
+        console.log('🔐 Test de autenticación:', testRes.status)
+        console.log('🍪 Cookies del documento (solo no-httpOnly):', document.cookie)
+      } catch (error) {
+        console.error('❌ Error en test de autenticación:', error)
+      }
+    }
+    checkAuth()
+  }, [])
+
   // --- 2. Lógica para cargar las horas de un día específico ---
   const handleDateSelect = async (date: Date | undefined) => {
     if (!date) return
@@ -144,14 +161,22 @@ export default function SolicitudMisasFeligres() {
     }
 
     setIsSubmitting(true)
+    
     try {
-      // ✨ Las cookies httpOnly se envían automáticamente con credentials: 'include'
+      console.log('🚀 Enviando solicitud de misa...')
+      console.log('📍 URL:', `${API_URL}/requestMass`)
+      console.log('📦 Datos:', {
+        date: formatDateForAPI(selectedDate),
+        time: selectedTime,
+        intention: intention
+      })
+
       const res = await fetch(`${API_URL}/requestMass`, {
         method: 'POST',
         headers: { 
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        credentials: 'include', // 👈 Esto envía las cookies automáticamente
+        credentials: 'include',
         body: JSON.stringify({
           date: formatDateForAPI(selectedDate),
           time: selectedTime,
@@ -159,10 +184,36 @@ export default function SolicitudMisasFeligres() {
         }),
       })
 
+      console.log('📡 Status de respuesta:', res.status)
+      console.log('📋 Headers de respuesta:', [...res.headers.entries()])
+
+      // Manejar error 401 específicamente
+      if (res.status === 401) {
+        console.error('❌ Error 401: No autorizado')
+        toast.error("Sesión expirada", {
+          description: "Tu sesión ha expirado. Por favor inicia sesión nuevamente.",
+          duration: 5000,
+        })
+        
+        // Opcional: redirigir al login después de 2 segundos
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 2000)
+        return
+      }
+
       if (!res.ok) {
         const err = await res.json()
+        console.error('❌ Error del servidor:', err)
         throw new Error(err.error || err.message || "No se pudo enviar la solicitud")
       }
+      
+      const data = await res.json()
+      console.log('✅ Solicitud exitosa:', data)
+      
+      toast.success("¡Solicitud enviada!", {
+        description: "Tu solicitud de misa ha sido enviada correctamente."
+      })
       
       setShowSuccessModal(true)
       
@@ -174,7 +225,10 @@ export default function SolicitudMisasFeligres() {
       fetchAvailableDays(currentMonth) 
 
     } catch (error: any) {
-      toast.error("Error al enviar", { description: error.message })
+      console.error('❌ Error general:', error)
+      toast.error("Error al enviar", { 
+        description: error.message || "Ocurrió un error inesperado"
+      })
     } finally {
       setIsSubmitting(false)
     }
