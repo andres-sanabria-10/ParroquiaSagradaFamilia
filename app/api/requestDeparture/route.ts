@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 👇 Hacer la petición al backend con la cookie
-    const response = await fetch("https://api-parroquiasagradafamilia.onrender.com/requestDeparture/", {
+    const response = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/requestDeparture/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
