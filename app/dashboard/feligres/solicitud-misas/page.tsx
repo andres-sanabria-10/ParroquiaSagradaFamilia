@@ -51,6 +51,17 @@ interface TimeSlot {
   available: boolean
 }
 
+// ✨ FUNCIÓN AUXILIAR: Obtener el token almacenado
+const getAuthToken = (): string | null => {
+  // Opción 1: Si guardas el token en localStorage
+  return localStorage.getItem('authToken')
+  
+  // Opción 2: Si usas cookies, puedes leerlas así:
+  // const cookies = document.cookie.split(';')
+  // const tokenCookie = cookies.find(c => c.trim().startsWith('token='))
+  // return tokenCookie ? tokenCookie.split('=')[1] : null
+}
+
 export default function SolicitudMisasFeligres() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [availableDays, setAvailableDays] = useState<Date[]>([])
@@ -74,7 +85,7 @@ export default function SolicitudMisasFeligres() {
     const daysInMonth = eachDayOfInterval({ start, end })
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Ignorar la hora para la comparación
+    today.setHours(0, 0, 0, 0);
 
     const promises = daysInMonth
       .filter(day => day >= today) 
@@ -97,7 +108,6 @@ export default function SolicitudMisasFeligres() {
     setAvailableDays(results)
   }
 
-  // Cargar días disponibles al montar y al cambiar de mes
   useEffect(() => {
     fetchAvailableDays(currentMonth)
   }, [currentMonth])
@@ -135,7 +145,7 @@ export default function SolicitudMisasFeligres() {
     }
   }
 
-  // --- 3. Lógica para enviar la solicitud de misa ---
+  // --- 3. Lógica para enviar la solicitud de misa (CORREGIDA) ---
   const handleSubmit = async () => {
     if (!selectedDate || !selectedTime || !intention) {
       toast.error("Datos incompletos", {
@@ -144,11 +154,25 @@ export default function SolicitudMisasFeligres() {
       return
     }
 
+    // ✨ OBTENER EL TOKEN
+    const token = getAuthToken()
+    
+    if (!token) {
+      toast.error("No autorizado", {
+        description: "No se encontró el token de autenticación. Por favor inicia sesión nuevamente.",
+      })
+      return
+    }
+
     setIsSubmitting(true)
     try {
       const res = await fetch(`${API_URL}/requestMass`, {
         method: 'POST',
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          // ✨ AGREGAR EL HEADER DE AUTORIZACIÓN
+          "Authorization": `Bearer ${token}`
+        },
         credentials: 'include',
         body: JSON.stringify({
           date: formatDateForAPI(selectedDate),
@@ -159,7 +183,7 @@ export default function SolicitudMisasFeligres() {
 
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || "No se pudo enviar la solicitud")
+        throw new Error(err.error || err.message || "No se pudo enviar la solicitud")
       }
       
       setShowSuccessModal(true)
@@ -189,25 +213,18 @@ export default function SolicitudMisasFeligres() {
               <p className="text-muted-foreground">Solicita una misa para tus intenciones.</p>
             </div>
 
-            {/* Tarjeta principal que ocupa todo el ancho */}
             <Card>
               <CardHeader>
                 <CardTitle>Programa tu Misa</CardTitle>
                 <CardDescription>Sigue los 3 pasos para completar tu solicitud.</CardDescription>
               </CardHeader>
 
-              {/* ========================================================== */}
-              {/* ✨ CAMBIO 1: Volvemos a la cuadrícula de 2 columnas */}
-              {/* ========================================================== */}
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
                 
                 {/* --- COLUMNA 1: CALENDARIO --- */}
                 <div className="space-y-4">
                   <Label className="text-lg font-medium text-center block">Paso 1: Selecciona la fecha</Label>
                   
-                  {/* ========================================================== */}
-                  {/* ✨ CAMBIO 2: Centramos y escalamos el calendario */}
-                  {/* ========================================================== */}
                   <div className="flex justify-center items-center pt-8">
                     <div className="scale-100">
                       <Calendar
