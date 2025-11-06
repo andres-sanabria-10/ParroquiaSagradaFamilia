@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { useState } from "react"
-
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Church, LogOut } from "lucide-react"
@@ -18,7 +17,6 @@ interface SidebarProps {
   userRole: string
 }
 
-// Mapeo para mostrar nombres amigables
 const roleDisplayNames: Record<string, string> = {
   "super": "Párroco",
   "admin": "Secretaria",
@@ -31,30 +29,43 @@ export function Sidebar({ items, userRole }: SidebarProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
+    if (isLoggingOut) return // Prevenir múltiples clicks
+    
     try {
       setIsLoggingOut(true)
       console.log("🚪 Cerrando sesión...")
       
-      const response = await fetch('/api/auth/logout', {
+      // ⚠️ CORRECCIÓN 1: Ruta correcta sin /auth/
+      const response = await fetch('/api/logout', {
         method: 'POST',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       })
 
       const data = await response.json()
+      console.log("📡 Respuesta del logout:", data)
 
-      if (response.ok && data.success) {
+      // Siempre redirigir, incluso si hay error
+      if (data.success) {
         console.log("✅ Logout exitoso")
-        // Usar window.location para forzar recarga completa y limpiar estado
-        window.location.href = '/login'
       } else {
-        console.error('⚠️ Error al cerrar sesión:', data)
-        // Redirigir de todos modos
-        window.location.href = '/login'
+        console.warn("⚠️ Logout con advertencias, pero continuando...")
       }
+
+      // ⚠️ CORRECCIÓN 2: Redirigir a /login (página) NO a /api/login (API)
+      console.log("🔄 Redirigiendo a /login...")
+      
+      // Limpiar el historial y redirigir
+      window.history.replaceState(null, '', '/login')
+      window.location.replace('/login')
+      
     } catch (error) {
       console.error('❌ Error al cerrar sesión:', error)
-      // Redirigir de todos modos para limpiar el estado
-      window.location.href = '/login'
+      // Incluso con error, redirigir a login
+      window.history.replaceState(null, '', '/login')
+      window.location.replace('/login')
     } finally {
       setIsLoggingOut(false)
     }

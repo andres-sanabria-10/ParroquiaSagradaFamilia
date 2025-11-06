@@ -4,58 +4,86 @@ export async function POST(request: NextRequest) {
   try {
     console.log("🚪 Iniciando logout...")
 
-    // Obtener las cookies del request
+    // Obtener TODAS las cookies del request
     const cookies = request.headers.get('cookie') || ''
+    console.log("🍪 Cookies recibidas:", cookies)
 
-    // Llamar al endpoint de logout del backend para limpiar la cookie JWT
+    // Llamar al endpoint de logout del backend
     try {
-      const backendResponse = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/auth/logout", {
-        method: "POST",
-        credentials: 'include',
-        headers: {
-          'Cookie': cookies,
+      const backendResponse = await fetch(
+        "https://api-parroquiasagradafamilia-s6qu.onrender.com/auth/logout", 
+        {
+          method: "POST",
+          credentials: 'include',
+          headers: {
+            'Cookie': cookies,
+            'Content-Type': 'application/json'
+          }
         }
-      })
+      )
 
       if (backendResponse.ok) {
         console.log("✅ Logout exitoso en el backend")
       } else {
-        console.warn("⚠️ Error al hacer logout en el backend, pero continuando...")
+        console.warn("⚠️ Error al hacer logout en el backend:", await backendResponse.text())
       }
     } catch (backendError) {
       console.error("❌ Error conectando con el backend:", backendError)
-      // Continuamos de todos modos para limpiar las cookies locales
     }
 
-    // Crear respuesta de Next.js
+    // Crear respuesta
     const res = NextResponse.json({ 
       message: "Logout exitoso",
       success: true 
     })
     
-    // 👇 Limpiar la cookie 'role' manejada por Next.js
+    // 🔥 Limpiar TODAS las cookies de autenticación
+    // Cookie del backend (JWT) - debe coincidir EXACTAMENTE con login
+    res.cookies.delete("jwt")
+    res.cookies.set("jwt", "", { 
+      path: "/",
+      maxAge: 0,
+      httpOnly: true,
+      secure: true, // Siempre true en producción (Render usa HTTPS)
+      sameSite: 'none'
+    })
+
+    // Cookie del frontend (role) - debe coincidir EXACTAMENTE con login
+    res.cookies.delete("role")
     res.cookies.set("role", "", { 
       path: "/", 
       maxAge: 0,
-      httpOnly: false 
+      httpOnly: true, // ⚠️ DEBE SER TRUE igual que en login
+      secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax'
     })
 
-    console.log("✅ Cookie 'role' eliminada")
-
+    console.log("✅ Todas las cookies eliminadas")
     return res
 
   } catch (error) {
     console.error("💥 Error en logout:", error)
     
-    // Aunque falle, limpiamos las cookies locales
+    // Incluso si falla, limpiamos las cookies
     const res = NextResponse.json({ 
-      message: "Logout exitoso (parcial)",
-      success: false 
-    }, { status: 500 })
+      message: "Error en logout, pero cookies limpiadas",
+      success: true // ⬅️ Mantener true para que el frontend redirija
+    }, { status: 200 }) // ⬅️ Cambiar a 200 en vez de 500
+    
+    res.cookies.set("jwt", "", { 
+      path: "/",
+      maxAge: 0,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: 'none'
+    })
     
     res.cookies.set("role", "", { 
       path: "/", 
-      maxAge: 0 
+      maxAge: 0,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax'
     })
     
     return res

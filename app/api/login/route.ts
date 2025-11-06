@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { mail, password } = body
 
-    console.log("🔐 Intentando login para:", mail)
+    console.log("🔍 Intentando login para:", mail)
 
     const response = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/auth/login", {
       method: "POST",
@@ -17,9 +17,31 @@ export async function POST(request: NextRequest) {
     })
 
     console.log("📡 Status del backend:", response.status)
+    console.log("📡 Content-Type:", response.headers.get('content-type'))
+
+    // 🔍 Verificar si la respuesta es HTML (error del servidor)
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('text/html')) {
+      const htmlText = await response.text()
+      console.error("❌ Backend devolvió HTML en lugar de JSON:", htmlText.substring(0, 200))
+      return NextResponse.json(
+        { error: "Error del servidor backend - no responde correctamente" },
+        { status: 500 }
+      )
+    }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      let errorData: any = {}
+      try {
+        errorData = await response.json()
+      } catch (parseError) {
+        const text = await response.text()
+        console.error("❌ Error parseando respuesta del backend:", text.substring(0, 200))
+        return NextResponse.json(
+          { error: "Error de comunicación con el servidor" },
+          { status: response.status }
+        )
+      }
       console.error("❌ Error del backend:", errorData)
       return NextResponse.json(
         { error: errorData.message || errorData.error || "Error al iniciar sesión" },
@@ -27,8 +49,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const data = await response.json()
-    console.log("✅ Respuesta del backend:", data)
+    let data: any
+    try {
+      data = await response.json()
+      console.log("✅ Respuesta del backend:", data)
+    } catch (parseError) {
+      const text = await response.text()
+      console.error("❌ Error parseando JSON exitoso:", text.substring(0, 200))
+      return NextResponse.json(
+        { error: "Respuesta inválida del servidor" },
+        { status: 500 }
+      )
+    }
 
     if (!data || !data.data || !data.data.role) {
       console.error("⚠️ Estructura de respuesta inesperada:", data)
@@ -43,18 +75,20 @@ export async function POST(request: NextRequest) {
 
     const nextResponse = NextResponse.json({
       message: "Login exitoso",
-      user: data.data, // 👈 Cambié esto para que coincida con tu componente de login
+      user: data.data,
     }, { status: 200 })
 
-    // 👇 CAMBIO IMPORTANTE: Usar "role" en lugar de "userRole"
+    // 🔥 CRÍTICO: La cookie 'role' debe tener httpOnly: true
+    // Para que el middleware pueda leerla correctamente
     nextResponse.cookies.set("role", data.data.role, {
-      httpOnly: true, // 👈 Se establece como true por seguridad; el middleware puede leerla igualmente.
+      httpOnly: true, // 🚨 DEBE SER TRUE - el middleware lee cookies httpOnly
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 3600, // 1 hora
       path: "/",
     })
 
+    // Copiar las cookies del backend (incluyendo JWT)
     if (backendCookies) {
       const cookies = backendCookies.split(',').map(c => c.trim())
       cookies.forEach(cookie => {
