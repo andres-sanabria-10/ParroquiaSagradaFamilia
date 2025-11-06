@@ -20,12 +20,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { ClipboardList, Calendar as CalendarIcon, History, Loader2 } from "lucide-react"
+import { ClipboardList, Calendar as CalendarIcon, Church,History, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns"
 
 // --- Sidebar ---
 const sidebarItems = [
+  {
+    title: "Inicio",  // 👈 NUEVO
+    href: "/dashboard/feligres",
+    icon: Church,  // o usa Home de lucide-react
+  },
   {
     title: "Solicitud de Partida",
     href: "/dashboard/feligres/solicitud-partida",

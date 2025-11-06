@@ -5,10 +5,15 @@ import { toast } from "sonner"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ClipboardList, Calendar, History, Loader2, BookOpen, Heart, Cross } from "lucide-react"
+import { ClipboardList, Calendar, History, Church,Loader2, BookOpen, Heart, Cross } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 const sidebarItems = [
+  {
+    title: "Inicio",  // 👈 NUEVO
+    href: "/dashboard/feligres",
+    icon: Church,  // o usa Home de lucide-react
+  },
   {
     title: "Solicitud de Partida",
     href: "/dashboard/feligres/solicitud-partida",

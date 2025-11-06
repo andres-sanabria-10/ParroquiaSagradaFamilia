@@ -7,9 +7,14 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ClipboardList, Calendar, History, Search, Download, Eye } from "lucide-react"
+import { ClipboardList, Church,Calendar, History, Search, Download, Eye } from "lucide-react"
 
 const sidebarItems = [
+  {
+    title: "Inicio",  // 👈 NUEVO
+    href: "/dashboard/feligres",
+    icon: Church,  // o usa Home de lucide-react
+  },
   {
     title: "Solicitud de Partida",
     href: "/dashboard/feligres/solicitud-partida",
