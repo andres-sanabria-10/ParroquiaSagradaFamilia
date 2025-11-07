@@ -27,27 +27,57 @@ export function middleware(request: NextRequest) {
 
   console.log("🔐 Middleware ejecutándose en:", pathname)
 
-  // 🔹 PRIMERO: Excluir rutas de API de autenticación (CRÍTICO)
+  // 🔹 Definir rutas de API públicas
   const publicApiPaths = [
     "/api/login",
     "/api/logout", 
-    "/api/register",
-    "/api/test-backend"
+    "/api/register", // Asume que tienes una ruta de registro
+    "/api/test-backend" // Si tienes una para pruebas o salud del backend
   ]
   
-  if (publicApiPaths.some(path => pathname.startsWith(path))) {
+  // Verificar si es una ruta de API (cualquiera que empiece por /api/)
+  const isApiPath = pathname.startsWith("/api/")
+
+  // 🔹 PRIMERO: Excluir rutas de API de autenticación explícitamente públicas
+  // Si es una API pública, permitir acceso sin verificación de JWT.
+  if (isApiPath && publicApiPaths.some(path => pathname.startsWith(path))) {
     console.log("✅ Ruta de API pública - Acceso permitido sin verificación")
     return NextResponse.next()
   }
 
-  // 🔹 Obtener AMBAS cookies
+  // 🔹 SEGUNDO: Manejo de rutas de API protegidas (el catch-all)
+  // Si es una ruta de API (y no fue excluida por ser pública), entonces requiere JWT.
+  if (isApiPath) {
+    const jwt = request.cookies.get("jwt")?.value
+    
+    if (!jwt) {
+      console.log("❌ API Protegida - JWT ausente, acceso denegado (401)")
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    // Clonar la solicitud para modificar los headers de forma segura
+    const newRequestHeaders = new Headers(request.headers)
+    newRequestHeaders.set("Authorization", `Bearer ${jwt}`)
+
+    // Devolver una nueva respuesta con la solicitud modificada
+    // Esto hace que el JWT esté disponible como un header en la ruta API
+    return NextResponse.next({
+      request: {
+        headers: newRequestHeaders,
+      },
+    })
+  }
+
+  // ⬆️ FIN DE LA SECCIÓN DE MANEJO DE APIs
+
+  // 🔹 Obtener AMBAS cookies (para lógica de redirección de páginas)
   const dbRole = request.cookies.get("role")?.value?.toLowerCase()
   const jwt = request.cookies.get("jwt")?.value
 
-  console.log("🍪 Role cookie:", dbRole || "❌ ausente")
-  console.log("🔑 JWT cookie:", jwt ? "✅ presente" : "❌ ausente")
+  console.log("🍪 Role cookie (para páginas):", dbRole || "❌ ausente")
+  console.log("🔑 JWT cookie (para páginas):", jwt ? "✅ presente" : "❌ ausente")
 
-  // 🔹 Usuario está autenticado si tiene AMBAS cookies
+  // 🔹 Usuario está autenticado si tiene AMBAS cookies (para páginas)
   const isAuthenticated = !!(dbRole && jwt)
 
   // 🔹 Rutas públicas (páginas, no APIs)
