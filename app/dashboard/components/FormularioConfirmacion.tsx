@@ -20,24 +20,21 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select" // Importamos Select
+} from "@/components/ui/select" 
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
 
-// --- 1. Schema de Validación ACTUALIZADO ---
+// --- Schema (sin cambios) ---
 const formSchema = z.object({
-  // --- Campos del Usuario ---
   documentNumber: z.string().min(5, "Debe tener al menos 5 caracteres"),
-  typeDocument: z.string({ required_error: "Debe seleccionar un tipo." }), // ✨ CAMBIO AQUÍ
+  typeDocument: z.string({ required_error: "Debe seleccionar un tipo." }),
   name: z.string().min(2, "El nombre es requerido"),
   lastName: z.string().min(2, "El apellido es requerido"),
   mail: z.string().email("Debe ser un email válido"),
   birthdate: z.string().date("Debe ser una fecha válida"),
-  
-  // --- Campos de Confirmación ---
   confirmationDate: z.string().date("Debe ser una fecha válida"),
   fatherName: z.string().min(2, "Campo requerido"),
   motherName: z.string().min(2, "Campo requerido"),
@@ -55,7 +52,7 @@ interface DocumentType {
 interface FormularioConfirmacionProps {
   onSuccess: () => void
   defaultValues?: Partial<ConfirmacionFormValues>
-  documentTypes: DocumentType[] // ✨ Prop para recibir la lista
+  documentTypes: DocumentType[] 
 }
 
 const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
@@ -69,18 +66,7 @@ export function FormularioConfirmacion({ onSuccess, defaultValues, documentTypes
   
   const form = useForm<ConfirmacionFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues || {
-      documentNumber: "",
-      name: "",
-      lastName: "",
-      mail: "",
-      birthdate: "",
-      confirmationDate: "",
-      fatherName: "",
-      motherName: "",
-      godfather: "",
-      baptizedParish: "",
-    },
+    defaultValues: defaultValues || {},
   })
 
   const { setValue, trigger, getValues } = form
@@ -153,78 +139,83 @@ export function FormularioConfirmacion({ onSuccess, defaultValues, documentTypes
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Datos del Confirmado</CardTitle>
-            <CardDescription>
-              {isEditing 
-                ? "La información del feligrés no puede ser editada desde esta pantalla." 
-                : "Ingresa el DNI. Si el usuario existe, sus datos se cargarán automáticamente."
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="documentNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número de Documento</FormLabel>
-                    <div className="flex items-center space-x-2">
-                      <FormControl>
-                        <Input 
-                          placeholder="DNI del confirmado..." 
-                          {...field} 
-                          onBlur={handleCheckUser} 
-                          disabled={isEditing} 
-                        />
-                      </FormControl>
-                      {isCheckingUser && <Loader2 className="h-4 w-4 animate-spin" />}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="typeDocument"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Documento</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={userExists}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar tipo..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {documentTypes.map((doc) => (
-                          <SelectItem key={doc._id} value={doc._id}>
-                            {doc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombres</FormLabel><FormControl><Input placeholder="Nombres..." {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="lastName" render={({ field }) => (<FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input placeholder="Apellidos..." {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="mail" render={({ field }) => (<FormItem><FormLabel>Correo</FormLabel><FormControl><Input type="email" placeholder="correo..." {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="birthdate" render={({ field }) => (<FormItem><FormLabel>Fecha Nacimiento</FormLabel><FormControl><Input type="date" {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
-            </div>
-          </CardContent>
-        </Card>
 
+        {/* ========================================================== */}
+        {/* ✨ CAMBIO AQUÍ: Este Card solo se muestra si NO estamos editando */}
+        {/* ========================================================== */}
+        {!isEditing && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Datos del Confirmado</CardTitle>
+              <CardDescription>
+                Ingresa el DNI. Si el usuario existe, sus datos se cargarán automáticamente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="documentNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número de Documento</FormLabel>
+                      <div className="flex items-center space-x-2">
+                        <FormControl>
+                          <Input 
+                            placeholder="DNI del confirmado..." 
+                            {...field} 
+                            onBlur={handleCheckUser} 
+                            disabled={isEditing} 
+                          />
+                        </FormControl>
+                        {isCheckingUser && <Loader2 className="h-4 w-4 animate-spin" />}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="typeDocument"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Documento</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={userExists}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tipo..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {documentTypes.map((doc) => (
+                            <SelectItem key={doc._id} value={doc._id}>
+                              {doc.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombres</FormLabel><FormControl><Input placeholder="Nombres..." {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="lastName" render={({ field }) => (<FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input placeholder="Apellidos..." {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="mail" render={({ field }) => (<FormItem><FormLabel>Correo</FormLabel><FormControl><Input type="email" placeholder="correo..." {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="birthdate" render={({ field }) => (<FormItem><FormLabel>Fecha Nacimiento</FormLabel><FormControl><Input type="date" {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* --- SECCIÓN DE DATOS DEL SACRAMENTO (Siempre visible) --- */}
         <Card>
           <CardHeader>
             <CardTitle>Datos del Sacramento</CardTitle>
+            {isEditing && <CardDescription>Esta información sí se puede modificar.</CardDescription>}
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField control={form.control} name="confirmationDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Confirmación</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />

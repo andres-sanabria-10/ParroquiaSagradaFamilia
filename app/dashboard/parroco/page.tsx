@@ -2,7 +2,7 @@
 
 import { Sidebar } from "@/components/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { UserPlus, FileText, Church, DollarSign, Users, Calendar } from "lucide-react"
+import { UserPlus, FileText, Church, DollarSign, Users, Calendar, ClipboardList } from "lucide-react"
 
 const sidebarItems = [
   {
@@ -16,9 +16,19 @@ const sidebarItems = [
     icon: FileText,
   },
   {
+    title: "Solicitudes de Partidas",
+    href: "/dashboard/parroco/solicitud-partida",
+    icon: ClipboardList,
+  },
+  {
     title: "Gestión de Misas",
     href: "/dashboard/parroco/misas",
     icon: Church,
+  },
+  {
+    title: "Solicitudes de Misa",
+    href: "/dashboard/parroco/solicitud-misa",
+    icon: Calendar,
   },
   {
     title: "Contabilidad",

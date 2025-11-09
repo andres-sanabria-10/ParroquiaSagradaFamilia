@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react" // Importamos useEffect
+import { useState, useEffect } from "react" 
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -53,15 +53,16 @@ import {
   PlusCircle,
   Loader2,
   Send,
+  UserPlus,
 } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns" 
 
 // --- Importar todos los formularios ---
-import { FormularioBautismo } from "./components/FormularioBautismo"
-import { FormularioConfirmacion } from "./components/FormularioConfirmacion" 
-import { FormularioMatrimonio } from "./components/FormularioMatrimonio"
-import { FormularioDefuncion } from "./components/FormularioDefuncion"
+import { FormularioBautismo } from "../../components/FormularioBautismo"
+import { FormularioConfirmacion } from "../../components/FormularioConfirmacion" 
+import { FormularioMatrimonio } from "../../components/FormularioMatrimonio"
+import { FormularioDefuncion } from "../../components/FormularioDefuncion"
 
 // --- Sidebar ---
 const sidebarItems = [
@@ -103,7 +104,7 @@ interface UserInfo {
   documentNumber: string
   mail: string
   birthdate: string 
-  typeDocument: DocumentType // ✨ Tipo de documento ahora es un objeto poblado
+  typeDocument: DocumentType 
 }
 interface Bautismo {
   _id: string
@@ -149,6 +150,14 @@ interface Defuncion {
   funeralDate?: string
 }
 
+// --- Componente de Formato de Fecha Seguro ---
+function safeFormatDate(dateString: string | undefined | null, formatStr: string = "yyyy-MM-dd") {
+  if (!dateString || new Date(dateString).toString() === "Invalid Date") {
+    return ""; // Devuelve vacío si la fecha es inválida o nula
+  }
+  return format(new Date(dateString), formatStr);
+}
+
 
 export default function GestionPartidasSecretaria() {
   // --- Estados para Bautismos ---
@@ -183,19 +192,19 @@ export default function GestionPartidasSecretaria() {
   const [isCreateDefuncionModalOpen, setIsCreateDefuncionModalOpen] = useState(false)
   const [editingDefuncion, setEditingDefuncion] = useState<Defuncion | null>(null)
 
-  // --- ✨ NUEVO ESTADO: Lista de Tipos de Documentos ---
+  // --- Estado para Tipos de Documentos ---
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([])
   
   // --- API Base URL ---
   const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
   
-  // --- ✨ NUEVO EFFECT: Cargar tipos de documento al montar la página ---
+  // --- Cargar tipos de documento al montar la página ---
   useEffect(() => {
     const fetchDocs = async () => {
       try {
         const res = await fetch(`${API_URL}/documentType/`, {
           method: "GET",
-          credentials: "include", // Añadido por si acaso está protegida
+          credentials: "include", 
           headers: { "Content-Type": "application/json" },
         })
         if (!res.ok) throw new Error("Error al cargar tipos de documento")
@@ -207,7 +216,7 @@ export default function GestionPartidasSecretaria() {
       }
     }
     fetchDocs()
-  }, []) // Se ejecuta solo una vez
+  }, []) 
 
   // --- Lógica de BAUTISMOS ---
   const handleBautismoSearch = async (e?: React.FormEvent) => {
@@ -316,7 +325,7 @@ export default function GestionPartidasSecretaria() {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar items={sidebarItems} userRole="secretaria" />
+      <Sidebar items={sidebarItems} userRole="Secretaria" />
       <main className="flex-1 overflow-y-auto">
         <div className="p-6">
           <div className="mb-8">
@@ -346,7 +355,6 @@ export default function GestionPartidasSecretaria() {
                     <Dialog open={isCreateBautismoModalOpen} onOpenChange={setIsCreateBautismoModalOpen}>
                       <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Bautismo</Button></DialogTrigger>
                       <DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>Registrar Nuevo Bautismo</DialogTitle></DialogHeader>
-                        {/* ✨ CAMBIO: Pasamos la lista de tipos de documento */}
                         <FormularioBautismo onSuccess={handleBautismoFormSuccess} documentTypes={documentTypes} />
                       </DialogContent>
                     </Dialog>
@@ -367,7 +375,7 @@ export default function GestionPartidasSecretaria() {
                           <TableRow key={b._id}>
                             <TableCell>{b.baptized.name} {b.baptized.lastName}</TableCell>
                             <TableCell>{b.baptized.documentNumber}</TableCell>
-                            <TableCell>{new Date(b.baptismDate).toLocaleDateString()}</TableCell>
+                            <TableCell>{safeFormatDate(b.baptismDate, "dd/MM/yyyy")}</TableCell>
                             <TableCell>{b.fatherName}</TableCell>
                             <TableCell>{b.motherName}</TableCell>
                             <TableCell className="text-right space-x-2">
@@ -376,18 +384,15 @@ export default function GestionPartidasSecretaria() {
                                 <DialogTrigger asChild><Button variant="outline" size="sm" onClick={() => setEditingBautismo(b)}><Edit className="w-4 h-4" /></Button></DialogTrigger>
                                 <DialogContent className="sm:max-w-3xl">
                                   <DialogHeader><DialogTitle>Editar Registro de Bautismo</DialogTitle></DialogHeader>
-                                  {editingBautismo && (
-                                    <FormularioBautismo 
-                                      onSuccess={handleBautismoFormSuccess} 
-                                      documentTypes={documentTypes} // ✨ CAMBIO: Pasamos la lista
+                                  {editingBautismo && <FormularioBautismo onSuccess={handleBautismoFormSuccess} documentTypes={documentTypes} 
                                       defaultValues={{ 
                                         documentNumber: editingBautismo.baptized.documentNumber, 
                                         name: editingBautismo.baptized.name, 
                                         lastName: editingBautismo.baptized.lastName, 
                                         mail: editingBautismo.baptized.mail, 
-                                        birthdate: format(new Date(editingBautismo.baptized.birthdate), "yyyy-MM-dd"), 
-                                        typeDocument: editingBautismo.baptized.typeDocument._id, // ✨ CAMBIO: Usamos el _id
-                                        baptismDate: format(new Date(editingBautismo.baptismDate), "yyyy-MM-dd"), 
+                                        birthdate: safeFormatDate(editingBautismo.baptized.birthdate), // ✨ CORREGIDO
+                                        typeDocument: editingBautismo.baptized.typeDocument?._id, 
+                                        baptismDate: safeFormatDate(editingBautismo.baptismDate), // ✨ CORREGIDO
                                         placeBirth: editingBautismo.placeBirth, 
                                         fatherName: editingBautismo.fatherName, 
                                         motherName: editingBautismo.motherName, 
@@ -395,7 +400,7 @@ export default function GestionPartidasSecretaria() {
                                         godfather2: editingBautismo.godfather2 || "", 
                                       }} 
                                     />
-                                  )}
+                                  }
                                 </DialogContent>
                               </Dialog>
                               <AlertDialog>
@@ -431,7 +436,6 @@ export default function GestionPartidasSecretaria() {
                     <Dialog open={isCreateConfirmacionModalOpen} onOpenChange={setIsCreateConfirmacionModalOpen}>
                       <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Confirmación</Button></DialogTrigger>
                       <DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>Registrar Nueva Confirmación</DialogTitle></DialogHeader>
-                        {/* ✨ CAMBIO: Pasamos la lista de tipos de documento */}
                         <FormularioConfirmacion onSuccess={handleConfirmacionFormSuccess} documentTypes={documentTypes} />
                       </DialogContent>
                     </Dialog>
@@ -452,7 +456,7 @@ export default function GestionPartidasSecretaria() {
                           <TableRow key={c._id}>
                             <TableCell>{c.confirmed.name} {c.confirmed.lastName}</TableCell>
                             <TableCell>{c.confirmed.documentNumber}</TableCell>
-                            <TableCell>{new Date(c.confirmationDate).toLocaleDateString()}</TableCell>
+                            <TableCell>{safeFormatDate(c.confirmationDate, "dd/MM/yyyy")}</TableCell>
                             <TableCell>{c.fatherName}</TableCell>
                             <TableCell>{c.motherName}</TableCell>
                             <TableCell>{c.godfather}</TableCell>
@@ -465,15 +469,15 @@ export default function GestionPartidasSecretaria() {
                                   {editingConfirmacion && (
                                     <FormularioConfirmacion 
                                       onSuccess={handleConfirmacionFormSuccess} 
-                                      documentTypes={documentTypes} // ✨ CAMBIO: Pasamos la lista
+                                      documentTypes={documentTypes} 
                                       defaultValues={{ 
                                         documentNumber: editingConfirmacion.confirmed.documentNumber, 
                                         name: editingConfirmacion.confirmed.name, 
                                         lastName: editingConfirmacion.confirmed.lastName, 
                                         mail: editingConfirmacion.confirmed.mail, 
-                                        birthdate: format(new Date(editingConfirmacion.confirmed.birthdate), "yyyy-MM-dd"), 
-                                        typeDocument: editingConfirmacion.confirmed.typeDocument._id, // ✨ CAMBIO: Usamos el _id
-                                        confirmationDate: format(new Date(editingConfirmacion.confirmationDate), "yyyy-MM-dd"), 
+                                        birthdate: safeFormatDate(editingConfirmacion.confirmed.birthdate), // ✨ CORREGIDO
+                                        typeDocument: editingConfirmacion.confirmed.typeDocument?._id,
+                                        confirmationDate: safeFormatDate(editingConfirmacion.confirmationDate), // ✨ CORREGIDO
                                         fatherName: editingConfirmacion.fatherName, 
                                         motherName: editingConfirmacion.motherName, 
                                         godfather: editingConfirmacion.godfather, 
@@ -516,7 +520,6 @@ export default function GestionPartidasSecretaria() {
                     <Dialog open={isCreateMatrimonioModalOpen} onOpenChange={setIsCreateMatrimonioModalOpen}>
                       <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Matrimonio</Button></DialogTrigger>
                       <DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>Registrar Nuevo Matrimonio</DialogTitle></DialogHeader>
-                        {/* ✨ CAMBIO: Pasamos la lista de tipos de documento */}
                         <FormularioMatrimonio onSuccess={handleMatrimonioFormSuccess} documentTypes={documentTypes} />
                       </DialogContent>
                     </Dialog>
@@ -537,7 +540,7 @@ export default function GestionPartidasSecretaria() {
                           <TableRow key={m._id}>
                             <TableCell>{m.husband.name} {m.husband.lastName}</TableCell>
                             <TableCell>{m.wife.name} {m.wife.lastName}</TableCell>
-                            <TableCell>{new Date(m.marriageDate).toLocaleDateString()}</TableCell>
+                            <TableCell>{safeFormatDate(m.marriageDate, "dd/MM/yyyy")}</TableCell>
                             <TableCell>{m.godfather1}</TableCell>
                             <TableCell>{m.godfather2}</TableCell>
                             <TableCell className="text-right space-x-2">
@@ -549,24 +552,26 @@ export default function GestionPartidasSecretaria() {
                                   {editingMatrimonio && (
                                     <FormularioMatrimonio 
                                       onSuccess={handleMatrimonioFormSuccess} 
-                                      documentTypes={documentTypes} // ✨ CAMBIO: Pasamos la lista
+                                      documentTypes={documentTypes}
+                                      // --- ✨ INICIO DE CORRECCIÓN DE FECHAS ---
                                       defaultValues={{ 
                                         husbandDocumentNumber: editingMatrimonio.husband.documentNumber,
                                         husbandName: editingMatrimonio.husband.name,
                                         husbandLastName: editingMatrimonio.husband.lastName,
                                         husbandMail: editingMatrimonio.husband.mail,
-                                        husbandBirthdate: format(new Date(editingMatrimonio.husband.birthdate), "yyyy-MM-dd"),
-                                        husbandTypeDocument: editingMatrimonio.husband.typeDocument._id, // ✨ CAMBIO
+                                        husbandBirthdate: safeFormatDate(editingMatrimonio.husband.birthdate), // ✨ CORREGIDO
+                                        husbandTypeDocument: editingMatrimonio.husband.typeDocument?._id,
                                         wifeDocumentNumber: editingMatrimonio.wife.documentNumber,
                                         wifeName: editingMatrimonio.wife.name,
                                         wifeLastName: editingMatrimonio.wife.lastName,
                                         wifeMail: editingMatrimonio.wife.mail,
-                                        wifeBirthdate: format(new Date(editingMatrimonio.wife.birthdate), "yyyy-MM-dd"),
-                                        wifeTypeDocument: editingMatrimonio.wife.typeDocument._id, // ✨ CAMBIO
-                                        marriageDate: format(new Date(editingMatrimonio.marriageDate), "yyyy-MM-dd"),
+                                        wifeBirthdate: safeFormatDate(editingMatrimonio.wife.birthdate), // ✨ CORREGIDO
+                                        wifeTypeDocument: editingMatrimonio.wife.typeDocument?._id,
+                                        marriageDate: safeFormatDate(editingMatrimonio.marriageDate), // ✨ CORREGIDO
                                         father_husband: editingMatrimonio.father_husband || "", mother_husband: editingMatrimonio.mother_husband || "", father_wife: editingMatrimonio.father_wife || "", mother_wife: editingMatrimonio.mother_wife || "", 
                                         godfather1: editingMatrimonio.godfather1, godfather2: editingMatrimonio.godfather2, witness1: editingMatrimonio.witness1, witness2: editingMatrimonio.witness2, 
                                       }} 
+                                      // --- ✨ FIN DE CORRECCIÓN DE FECHAS ---
                                     />
                                   )}
                                 </DialogContent>
@@ -604,7 +609,6 @@ export default function GestionPartidasSecretaria() {
                     <Dialog open={isCreateDefuncionModalOpen} onOpenChange={setIsCreateDefuncionModalOpen}>
                       <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> Registrar Defunción</Button></DialogTrigger>
                       <DialogContent className="sm:max-w-3xl"><DialogHeader><DialogTitle>Registrar Nueva Defunción</DialogTitle></DialogHeader>
-                        {/* ✨ CAMBIO: Pasamos la lista de tipos de documento */}
                         <FormularioDefuncion onSuccess={handleDefuncionFormSuccess} documentTypes={documentTypes} />
                       </DialogContent>
                     </Dialog>
@@ -625,7 +629,7 @@ export default function GestionPartidasSecretaria() {
                           <TableRow key={d._id}>
                             <TableCell>{d.dead.name} {d.dead.lastName}</TableCell>
                             <TableCell>{d.dead.documentNumber}</TableCell>
-                            <TableCell>{new Date(d.deathDate).toLocaleDateString()}</TableCell>
+                            <TableCell>{safeFormatDate(d.deathDate, "dd/MM/yyyy")}</TableCell>
                             <TableCell>{d.civilStatus}</TableCell>
                             <TableCell>{d.cemeteryName}</TableCell>
                             <TableCell className="text-right space-x-2">
@@ -637,21 +641,23 @@ export default function GestionPartidasSecretaria() {
                                   {editingDefuncion && (
                                     <FormularioDefuncion 
                                       onSuccess={handleDefuncionFormSuccess} 
-                                      documentTypes={documentTypes} // ✨ CAMBIO: Pasamos la lista
+                                      documentTypes={documentTypes} 
+                                      // --- ✨ INICIO DE CORRECCIÓN DE FECHAS ---
                                       defaultValues={{ 
                                         documentNumber: editingDefuncion.dead.documentNumber,
                                         name: editingDefuncion.dead.name,
                                         lastName: editingDefuncion.dead.lastName,
                                         mail: editingDefuncion.dead.mail,
-                                        birthdate: format(new Date(editingDefuncion.dead.birthdate), "yyyy-MM-dd"),
-                                        typeDocument: editingDefuncion.dead.typeDocument._id, // ✨ CAMBIO: Usamos el _id
-                                        deathDate: format(new Date(editingDefuncion.deathDate), "yyyy-MM-dd"), 
+                                        birthdate: safeFormatDate(editingDefuncion.dead.birthdate), // ✨ CORREGIDO
+                                        typeDocument: editingDefuncion.dead.typeDocument?._id,
+                                        deathDate: safeFormatDate(editingDefuncion.deathDate), // ✨ CORREGIDO
                                         fatherName: editingDefuncion.fatherName, 
                                         motherName: editingDefuncion.motherName, 
                                         civilStatus: editingDefuncion.civilStatus, 
                                         cemeteryName: editingDefuncion.cemeteryName, 
-                                        funeralDate: editingDefuncion.funeralDate ? format(new Date(editingDefuncion.funeralDate), "yyyy-MM-dd") : "", 
-                                      }} 
+                                        funeralDate: safeFormatDate(editingDefuncion.funeralDate), // ✨ CORREGIDO
+                                      }}
+                                      // --- ✨ FIN DE CORRECCIÓN DE FECHAS ---
                                     />
                                   )}
                                 </DialogContent>
@@ -757,7 +763,7 @@ function SendEmailDialog({ recordType, recordTypeName, documentNumber, recordNam
         <DialogHeader>
           <DialogTitle>Enviar Partida de {recordTypeName}</DialogTitle>
           <DialogDescription>
-            La partida de <strong>{recordName}</strong> se enviará al correo que indiques a continuación.
+            La partida de D <strong>{recordName}</strong> se enviará al correo que indiques a continuación.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-2">
