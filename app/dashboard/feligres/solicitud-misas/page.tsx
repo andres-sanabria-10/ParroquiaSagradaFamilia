@@ -50,7 +50,7 @@ const sidebarItems = [
 
 // --- Constantes y Tipos ---
 const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
-const PROXY_URL = "/api/request-mass" // 👈 Usar API Routes de Next.js como proxy
+const PROXY_URL = "/api/requestMass" // 👈 Usar API Routes de Next.js como proxy
 
 interface TimeSlot {
   time: string

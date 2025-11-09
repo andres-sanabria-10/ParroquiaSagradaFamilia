@@ -60,7 +60,7 @@ export default function FeligresDashboard() {
     const fetchUserData = async () => {
       try {
         // 👇 CAMBIO: Usar la API Route local
-        const response = await fetch("/api/user-data", {
+        const response = await fetch("/api/user/data", {
           method: 'GET',
           credentials: 'include',
         })
