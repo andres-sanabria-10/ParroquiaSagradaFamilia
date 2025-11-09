@@ -129,9 +129,19 @@ export default function SolicitudPartidaFeligres() {
       })
 
       if (!paymentResponse.ok) {
-        const error = await paymentResponse.json()
+        let error
+        try {
+          error = await paymentResponse.json()
+        } catch (parseError) {
+          // Si no puede parsear como JSON, obtener el texto
+          const errorText = await paymentResponse.text()
+          console.error("❌ Respuesta no-JSON del servidor:", errorText.substring(0, 200))
+          throw new Error('Error del servidor al crear el pago. Por favor, intenta de nuevo.')
+        }
+        
         console.error("❌ Error al crear pago:", error)
-        throw new Error(error.error || 'Error al crear el pago')
+        const errorMsg = error.error || error.details?.message || 'Error al crear el pago'
+        throw new Error(errorMsg)
       }
 
       const paymentData = await paymentResponse.json()
