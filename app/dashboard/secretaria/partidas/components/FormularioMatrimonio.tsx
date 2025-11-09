@@ -7,21 +7,43 @@ import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { format } from "date-fns"
 
-// --- 1. Schema de Validación (basado en tu .js) ---
+// --- 1. Schema de Validación ACTUALIZADO ---
 const formSchema = z.object({
+  // Esposo
   husbandDocumentNumber: z.string().min(5, "Documento requerido"),
+  husbandTypeDocument: z.string({ required_error: "Debe seleccionar un tipo." }),
+  husbandName: z.string().min(2, "Nombre requerido"),
+  husbandLastName: z.string().min(2, "Apellido requerido"),
+  husbandMail: z.string().email("Email requerido"),
+  husbandBirthdate: z.string().date("Fecha requerida"),
+  // Esposa
   wifeDocumentNumber: z.string().min(5, "Documento requerido"),
+  wifeTypeDocument: z.string({ required_error: "Debe seleccionar un tipo." }),
+  wifeName: z.string().min(2, "Nombre requerido"),
+  wifeLastName: z.string().min(2, "Apellido requerido"),
+  wifeMail: z.string().email("Email requerido"),
+  wifeBirthdate: z.string().date("Fecha requerida"),
+  // Matrimonio
   marriageDate: z.string().date("Debe ser una fecha válida"),
   father_husband: z.string().optional(),
   mother_husband: z.string().optional(),
@@ -35,39 +57,82 @@ const formSchema = z.object({
 
 type MatrimonioFormValues = z.infer<typeof formSchema>
 
+interface DocumentType {
+  _id: string
+  name: string
+}
+
 interface FormularioMatrimonioProps {
   onSuccess: () => void
   defaultValues?: Partial<MatrimonioFormValues>
+  documentTypes: DocumentType[] // ✨ Prop para recibir la lista
 }
 
-export function FormularioMatrimonio({ onSuccess, defaultValues }: FormularioMatrimonioProps) {
+const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
+
+export function FormularioMatrimonio({ onSuccess, defaultValues, documentTypes }: FormularioMatrimonioProps) {
   const [isLoading, setIsLoading] = useState(false)
   
+  const isEditing = !!defaultValues?.husbandDocumentNumber
+  
+  const [husbandExists, setHusbandExists] = useState(isEditing)
+  const [wifeExists, setWifeExists] = useState(isEditing)
+  const [isCheckingHusband, setIsCheckingHusband] = useState(false)
+  const [isCheckingWife, setIsCheckingWife] = useState(false)
+
   const form = useForm<MatrimonioFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues || {
-      husbandDocumentNumber: "",
-      wifeDocumentNumber: "",
-      marriageDate: "",
-      father_husband: "",
-      mother_husband: "",
-      father_wife: "",
-      mother_wife: "",
-      godfather1: "",
-      godfather2: "",
-      witness1: "",
-      witness2: "",
-    },
+    defaultValues: defaultValues || {},
   })
+
+  const { setValue, trigger, getValues } = form
+
+  const handleCheckUser = async (
+    docNumber: string,
+    type: 'husband' | 'wife'
+  ) => {
+    if (isEditing) return;
+    if (docNumber.length < 5) return;
+
+    const setIsChecking = type === 'husband' ? setIsCheckingHusband : setIsCheckingWife;
+    const setUserExists = type === 'husband' ? setHusbandExists : setWifeExists;
+    const toastTitle = type === 'husband' ? "Esposo" : "Esposa";
+
+    setIsChecking(true);
+    try {
+      const res = await fetch(`${API_URL}/user/by-document/${docNumber}`, { 
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        const user = await res.json();
+        setValue(`${type}Name`, user.name);
+        setValue(`${type}LastName`, user.lastName);
+        setValue(`${type}Mail`, user.mail);
+        setValue(`${type}Birthdate`, format(new Date(user.birthdate), "yyyy-MM-dd"));
+        setValue(`${type}TypeDocument`, user.typeDocument._id); // ✨ CAMBIO
+        setUserExists(true);
+        toast.success(`${toastTitle} encontrado. Datos autocompletados.`);
+        trigger([`${type}Name`, `${type}LastName`, `${type}Mail`, `${type}Birthdate`, `${type}TypeDocument`]);
+      } else {
+        setUserExists(false); 
+        toast.info(`${toastTitle} no registrado. Por favor, complete los datos.`);
+      }
+    } catch (error) {
+      setUserExists(false);
+      toast.error(`Error al verificar ${toastTitle}.`);
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   const onSubmit = async (data: MatrimonioFormValues) => {
     setIsLoading(true)
     
-    const isEditing = !!defaultValues
-    // En edición, el ID para la URL es el DNI del esposo (basado en tu .js)
     const url = isEditing
-      ? `https://api-parroquiasagradafamilia-s6qu.onrender.com/marriage/${defaultValues.husbandDocumentNumber}`
-      : "https://api-parroquiasagradafamilia-s6qu.onrender.com/marriage/"
+      ? `${API_URL}/marriage/${defaultValues?.husbandDocumentNumber}`
+      : `${API_URL}/marriage/`
     const method = isEditing ? "PUT" : "POST"
 
     try {
@@ -80,7 +145,7 @@ export function FormularioMatrimonio({ onSuccess, defaultValues }: FormularioMat
 
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.message || "Error al guardar el registro de matrimonio")
+        throw new Error(err.message || "Error al guardar el registro")
       }
       
       toast.success(isEditing ? "Matrimonio actualizado" : "Matrimonio registrado")
@@ -99,7 +164,7 @@ export function FormularioMatrimonio({ onSuccess, defaultValues }: FormularioMat
         
         <Card>
           <CardHeader>
-            <CardTitle>Datos de los Contrayentes</CardTitle>
+            <CardTitle>Datos del Esposo</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -108,172 +173,150 @@ export function FormularioMatrimonio({ onSuccess, defaultValues }: FormularioMat
                 name="husbandDocumentNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Documento del Esposo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="DNI del esposo..." {...field} />
-                    </FormControl>
+                    <FormLabel>Número de Documento</FormLabel>
+                    <div className="flex items-center space-x-2">
+                      <FormControl>
+                        <Input 
+                          placeholder="DNI del esposo..." 
+                          {...field} 
+                          onBlur={() => handleCheckUser(field.value, 'husband')} 
+                          disabled={isEditing} 
+                        />
+                      </FormControl>
+                      {isCheckingHusband && <Loader2 className="h-4 w-4 animate-spin" />}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              {/* --- ✨ CAMBIO: Campo 'Tipo de Documento' dinámico --- */}
               <FormField
                 control={form.control}
-                name="wifeDocumentNumber"
+                name="husbandTypeDocument"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Documento de la Esposa</FormLabel>
-                    <FormControl>
-                      <Input placeholder="DNI de la esposa..." {...field} />
-                    </FormControl>
+                    <FormLabel>Tipo de Documento</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={husbandExists}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar tipo..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {documentTypes.map((doc) => (
+                          <SelectItem key={doc._id} value={doc._id}>
+                            {doc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="marriageDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fecha de Matrimonio</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="husbandName" render={({ field }) => (<FormItem><FormLabel>Nombres</FormLabel><FormControl><Input placeholder="Nombres..." {...field} disabled={husbandExists} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="husbandLastName" render={({ field }) => (<FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input placeholder="Apellidos..." {...field} disabled={husbandExists} /></FormControl><FormMessage /></FormItem>)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="husbandMail" render={({ field }) => (<FormItem><FormLabel>Correo</FormLabel><FormControl><Input type="email" placeholder="correo..." {...field} disabled={husbandExists} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="husbandBirthdate" render={({ field }) => (<FormItem><FormLabel>Fecha Nacimiento</FormLabel><FormControl><Input type="date" {...field} disabled={husbandExists} /></FormControl><FormMessage /></FormItem>)} />
+            </div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader>
-            <CardTitle>Datos de los Padres</CardTitle>
-            <CardDescription>(Opcional)</CardDescription>
+            <CardTitle>Datos de la Esposa</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="father_husband"
+                name="wifeDocumentNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Padre del Esposo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre completo..." {...field} />
-                    </FormControl>
+                    <FormLabel>Número de Documento</FormLabel>
+                    <div className="flex items-center space-x-2">
+                      <FormControl>
+                        <Input 
+                          placeholder="DNI de la esposa..." 
+                          {...field} 
+                          onBlur={() => handleCheckUser(field.value, 'wife')} 
+                          disabled={isEditing} 
+                        />
+                      </FormControl>
+                      {isCheckingWife && <Loader2 className="h-4 w-4 animate-spin" />}
+                    </div>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
+              {/* --- ✨ CAMBIO: Campo 'Tipo de Documento' dinámico --- */}
               <FormField
                 control={form.control}
-                name="mother_husband"
+                name="wifeTypeDocument"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Madre del Esposo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre completo..." {...field} />
-                    </FormControl>
+                    <FormLabel>Tipo de Documento</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={wifeExists}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar tipo..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {documentTypes.map((doc) => (
+                          <SelectItem key={doc._id} value={doc._id}>
+                            {doc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="father_wife"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Padre de la Esposa</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre completo..." {...field} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="mother_wife"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Madre de la Esposa</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre completo..." {...field} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="wifeName" render={({ field }) => (<FormItem><FormLabel>Nombres</FormLabel><FormControl><Input placeholder="Nombres..." {...field} disabled={wifeExists} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="wifeLastName" render={({ field }) => (<FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input placeholder="Apellidos..." {...field} disabled={wifeExists} /></FormControl><FormMessage /></FormItem>)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="wifeMail" render={({ field }) => (<FormItem><FormLabel>Correo</FormLabel><FormControl><Input type="email" placeholder="correo..." {...field} disabled={wifeExists} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="wifeBirthdate" render={({ field }) => (<FormItem><FormLabel>Fecha Nacimiento</FormLabel><FormControl><Input type="date" {...field} disabled={wifeExists} /></FormControl><FormMessage /></FormItem>)} />
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Padrinos y Testigos</CardTitle>
-            <CardDescription>Campos requeridos.</CardDescription>
+            <CardTitle>Datos del Sacramento</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <FormField control={form.control} name="marriageDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Matrimonio</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="godfather1"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Padrino 1</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre completo..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="godfather2"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Padrino 2</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre completo..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="father_husband" render={({ field }) => (<FormItem><FormLabel>Padre del Esposo (Opcional)</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl></FormItem>)} />
+              <FormField control={form.control} name="mother_husband" render={({ field }) => (<FormItem><FormLabel>Madre del Esposo (Opcional)</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl></FormItem>)} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="witness1"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Testigo 1</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre completo..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="witness2"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Testigo 2</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre completo..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="father_wife" render={({ field }) => (<FormItem><FormLabel>Padre de la Esposa (Opcional)</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl></FormItem>)} />
+              <FormField control={form.control} name="mother_wife" render={({ field }) => (<FormItem><FormLabel>Madre de la Esposa (Opcional)</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl></FormItem>)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="godfather1" render={({ field }) => (<FormItem><FormLabel>Padrino 1</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="godfather2" render={({ field }) => (<FormItem><FormLabel>Padrino 2</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="witness1" render={({ field }) => (<FormItem><FormLabel>Testigo 1</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="witness2" render={({ field }) => (<FormItem><FormLabel>Testigo 2</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl><FormMessage /></FormItem>)} />
             </div>
           </CardContent>
         </Card>
         
         <Button type="submit" disabled={isLoading} className="w-full">
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Guardar Registro de Matrimonio"}
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Guardar Registro"}
         </Button>
       </form>
     </Form>

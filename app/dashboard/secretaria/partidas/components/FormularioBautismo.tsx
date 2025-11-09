@@ -14,14 +14,30 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select" // Importamos Select
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react" // Importamos useEffect
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { format } from "date-fns"
 
-// --- 1. Definir el Schema de Validación con Zod ---
-// (Basado en tu formulario HTML)
+// --- 1. Schema de Validación ACTUALIZADO ---
 const formSchema = z.object({
+  // --- Campos del Usuario ---
   documentNumber: z.string().min(5, "Debe tener al menos 5 caracteres"),
+  typeDocument: z.string({ required_error: "Debe seleccionar un tipo." }), // ✨ CAMBIO AQUÍ
+  name: z.string().min(2, "El nombre es requerido"),
+  lastName: z.string().min(2, "El apellido es requerido"),
+  mail: z.string().email("Debe ser un email válido"),
+  birthdate: z.string().date("Debe ser una fecha válida"),
+  
+  // --- Campos de la partida (como antes) ---
   baptismDate: z.string().date("Debe ser una fecha válida"),
   placeBirth: z.string().min(2, "Campo requerido"),
   fatherName: z.string().min(2, "Campo requerido"),
@@ -32,20 +48,35 @@ const formSchema = z.object({
 
 type BautismoFormValues = z.infer<typeof formSchema>
 
-// --- Props del Componente ---
-interface FormularioBautismoProps {
-  onSuccess: () => void // Función para cerrar el modal al tener éxito
-  defaultValues?: Partial<BautismoFormValues> // Para modo "Editar"
+// --- Definimos la estructura del Tipo de Documento ---
+interface DocumentType {
+  _id: string
+  name: string
 }
 
-export function FormularioBautismo({ onSuccess, defaultValues }: FormularioBautismoProps) {
+interface FormularioBautismoProps {
+  onSuccess: () => void
+  defaultValues?: Partial<BautismoFormValues>
+  documentTypes: DocumentType[] // ✨ Prop para recibir la lista
+}
+
+const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
+
+export function FormularioBautismo({ onSuccess, defaultValues, documentTypes }: FormularioBautismoProps) {
   const [isLoading, setIsLoading] = useState(false)
   
-  // --- 2. Configurar react-hook-form ---
+  const isEditing = !!defaultValues?.documentNumber
+  const [userExists, setUserExists] = useState(isEditing)
+  const [isCheckingUser, setIsCheckingUser] = useState(false) 
+  
   const form = useForm<BautismoFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues || {
       documentNumber: "",
+      name: "",
+      lastName: "",
+      mail: "",
+      birthdate: "",
       baptismDate: "",
       placeBirth: "",
       fatherName: "",
@@ -54,16 +85,53 @@ export function FormularioBautismo({ onSuccess, defaultValues }: FormularioBauti
       godfather2: "",
     },
   })
+  
+  const { setValue, trigger, getValues } = form
 
-  // --- 3. Lógica de Envío (Submit) ---
+  const handleCheckUser = async () => {
+    if (isEditing || isCheckingUser) return;
+    const documentNumber = getValues("documentNumber");
+    if (documentNumber.length < 5) return; 
+
+    setIsCheckingUser(true);
+    try {
+      const res = await fetch(`${API_URL}/user/by-document/${documentNumber}`, { 
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        const user = await res.json();
+        
+        setValue("name", user.name);
+        setValue("lastName", user.lastName);
+        setValue("mail", user.mail);
+        setValue("birthdate", format(new Date(user.birthdate), "yyyy-MM-dd"));
+        // ✨ CAMBIO: Seteamos el ID del tipo de documento
+        setValue("typeDocument", user.typeDocument._id); 
+        
+        setUserExists(true); 
+        toast.success("Usuario encontrado. Datos autocompletados.");
+        trigger(["name", "lastName", "mail", "birthdate", "typeDocument"]);
+      } else {
+        setUserExists(false); 
+        toast.info("Usuario no registrado. Por favor, complete los datos.");
+      }
+    } catch (error) {
+      setUserExists(false);
+      toast.error("Error al verificar el usuario.");
+      console.error("Error en handleCheckUser:", error);
+    } finally {
+      setIsCheckingUser(false);
+    }
+  };
+
   const onSubmit = async (data: BautismoFormValues) => {
     setIsLoading(true)
     
-    // Determinar si es Crear (POST) o Editar (PUT)
-    const isEditing = !!defaultValues
     const url = isEditing
-      ? `https://api-parroquiasagradafamilia-s6qu.onrender.com/baptism/${defaultValues.documentNumber}`
-      : "https://api-parroquiasagradafamilia-s6qu.onrender.com/baptism/"
+      ? `${API_URL}/baptism/${defaultValues?.documentNumber}`
+      : `${API_URL}/baptism/`
     const method = isEditing ? "PUT" : "POST"
 
     try {
@@ -71,7 +139,7 @@ export function FormularioBautismo({ onSuccess, defaultValues }: FormularioBauti
         method: method,
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(data), 
       })
 
       if (!res.ok) {
@@ -80,7 +148,7 @@ export function FormularioBautismo({ onSuccess, defaultValues }: FormularioBauti
       }
       
       toast.success(isEditing ? "Bautismo actualizado" : "Bautismo registrado")
-      onSuccess() // Cierra el modal y refresca la tabla
+      onSuccess() 
 
     } catch (error: any) {
       toast.error("Error al guardar", { description: error.message })
@@ -91,104 +159,101 @@ export function FormularioBautismo({ onSuccess, defaultValues }: FormularioBauti
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="documentNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Número de Documento (Bautizado)</FormLabel>
-                <FormControl>
-                  <Input placeholder="DNI del bautizado..." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="baptismDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fecha de Bautismo</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <FormField
-          control={form.control}
-          name="placeBirth"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Lugar de Nacimiento</FormLabel>
-              <FormControl>
-                <Input placeholder="Ciudad, País" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="fatherName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nombre del Padre</FormLabel>
-                <FormControl>
-                  <Input placeholder="Nombre completo..." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="motherName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nombre de la Madre</FormLabel>
-                <FormControl>
-                  <Input placeholder="Nombre completo..." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="godfather1"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Padrino 1</FormLabel>
-                <FormControl>
-                  <Input placeholder="Nombre completo..." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="godfather2"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Padrino 2 (Opcional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="Nombre completo..." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Datos del Bautizado</CardTitle>
+            <CardDescription>
+              {isEditing 
+                ? "La información del feligrés no puede ser editada desde esta pantalla." 
+                : "Ingresa el DNI. Si el usuario existe, sus datos se cargarán automáticamente."
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="documentNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Número de Documento</FormLabel>
+                    <div className="flex items-center space-x-2">
+                      <FormControl>
+                        <Input 
+                          placeholder="DNI del bautizado..." 
+                          {...field} 
+                          onBlur={handleCheckUser} 
+                          disabled={isEditing} 
+                        />
+                      </FormControl>
+                      {isCheckingUser && <Loader2 className="h-4 w-4 animate-spin" />}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {/* --- ✨ CAMBIO: Campo 'Tipo de Documento' dinámico --- */}
+              <FormField
+                control={form.control}
+                name="typeDocument"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Documento</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={userExists}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar tipo..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {documentTypes.map((doc) => (
+                          <SelectItem key={doc._id} value={doc._id}>
+                            {doc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombres</FormLabel><FormControl><Input placeholder="Nombres..." {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="lastName" render={({ field }) => (<FormItem><FormLabel>Apellidos</FormLabel><FormControl><Input placeholder="Apellidos..." {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="mail" render={({ field }) => (<FormItem><FormLabel>Correo</FormLabel><FormControl><Input type="email" placeholder="correo..." {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="birthdate" render={({ field }) => (<FormItem><FormLabel>Fecha Nacimiento</FormLabel><FormControl><Input type="date" {...field} disabled={userExists} /></FormControl><FormMessage /></FormItem>)} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* --- SECCIÓN DE DATOS DEL BAUTISMO (Sin cambios) --- */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Datos del Sacramento</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+             {/* ... (el resto de los campos: baptismDate, placeBirth, fatherName, etc. se quedan igual) ... */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="baptismDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Bautismo</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="placeBirth" render={({ field }) => (<FormItem><FormLabel>Lugar de Nacimiento</FormLabel><FormControl><Input placeholder="Ciudad, País" {...field} /></FormControl><FormMessage /></FormItem>)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormLabel>Nombre del Padre</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormLabel>Nombre de la Madre</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="godfather1" render={({ field }) => (<FormItem><FormLabel>Padrino 1</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="godfather2" render={({ field }) => (<FormItem><FormLabel>Padrino 2 (Opcional)</FormLabel><FormControl><Input placeholder="Nombre completo..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+            </div>
+          </CardContent>
+        </Card>
+        
         <Button type="submit" disabled={isLoading} className="w-full">
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Guardar Registro"}
         </Button>
