@@ -60,76 +60,6 @@ export default function SolicitudPartidaFeligres() {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
   const router = useRouter()
 
-  // 🌐 Función para redirigir a ePayco (CON VALIDACIÓN)
-  const redirectToEpayco = (checkoutData: any, checkoutUrl: string) => {
-    console.log("🔍 Verificando datos antes de enviar a ePayco...")
-    console.log("📋 CheckoutData completo:", JSON.stringify(checkoutData, null, 2))
-    
-    // ✅ Validar campos obligatorios
-    const requiredFields = [
-      'p_cust_id_cliente',
-      'p_key',
-      'p_amount',
-      'p_amount_base',
-      'p_tax',
-      'p_currency_code',
-      'p_signature',
-      'p_reference',
-      'p_description',
-      'p_email',
-      'p_name_billing',
-      'p_address_billing',
-      'p_type_doc_billing',
-      'p_number_doc_billing',
-      'p_url_response',
-      'p_url_confirmation',
-      'p_test_request'
-    ]
-
-    const missingFields: string[] = []
-    requiredFields.forEach(field => {
-      if (!checkoutData[field] || checkoutData[field] === '' || checkoutData[field] === 'undefined') {
-        missingFields.push(field)
-        console.error(`❌ Falta o es inválido el campo: ${field}`, checkoutData[field])
-      } else {
-        console.log(`✅ ${field}:`, checkoutData[field])
-      }
-    })
-
-    if (missingFields.length > 0) {
-      toast.error("Error en los datos de pago", {
-        description: `Faltan campos: ${missingFields.join(', ')}`,
-        duration: 5000,
-      })
-      console.error("🚨 Campos faltantes o inválidos:", missingFields)
-      return
-    }
-
-    console.log("✅ Todos los campos obligatorios están presentes")
-    console.log("🌐 Redirigiendo a:", checkoutUrl)
-
-    // Crear un formulario dinámico
-    const form = document.createElement('form')
-    form.method = 'POST'
-    form.action = checkoutUrl
-    form.target = '_self' // Asegurar que se abre en la misma ventana
-
-    // Agregar todos los campos del checkoutData
-    Object.keys(checkoutData).forEach(key => {
-      const input = document.createElement('input')
-      input.type = 'hidden'
-      input.name = key
-      input.value = checkoutData[key]?.toString() || '' // Convertir a string por seguridad
-      form.appendChild(input)
-      console.log(`📝 Campo agregado: ${key} = ${input.value}`)
-    })
-
-    // Agregar el formulario al body y enviarlo
-    document.body.appendChild(form)
-    console.log("📤 Enviando formulario a ePayco...")
-    form.submit()
-  }
-
   // 🔥 Función principal: Crear solicitud + Iniciar pago
   const handleRequestDepartureWithPayment = async (departureType: string, price: number) => {
     console.log("🚀 Iniciando solicitud de partida con pago:", departureType)
@@ -185,13 +115,7 @@ export default function SolicitudPartidaFeligres() {
 
       // ━━━ PASO 2: Crear el pago ━━━
       console.log("💳 Paso 2: Creando pago...")
-      console.log("📦 Datos del pago:", {
-        serviceType: 'certificate',
-        serviceId: requestId,
-        amount: price,
-        description: `Pago por certificado de ${departureType.toLowerCase()}`
-      })
-
+      
       const paymentResponse = await fetch('/api/payment/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -211,16 +135,10 @@ export default function SolicitudPartidaFeligres() {
       }
 
       const paymentData = await paymentResponse.json()
-      console.log('✅ Respuesta completa del pago:', JSON.stringify(paymentData, null, 2))
+      console.log('✅ Respuesta del pago:', paymentData)
       
-      if (!paymentData.success) {
-        throw new Error('No se pudo crear el pago')
-      }
-
-      // ✅ Verificar que checkoutData existe
-      if (!paymentData.checkoutData) {
-        console.error("❌ No se recibió checkoutData del backend")
-        throw new Error('No se recibieron los datos del checkout')
+      if (!paymentData.success || !paymentData.paymentUrl) {
+        throw new Error('No se recibió la URL de pago')
       }
 
       // ━━━ PASO 3: Redirigir a ePayco ━━━
@@ -229,9 +147,9 @@ export default function SolicitudPartidaFeligres() {
         duration: 2000,
       })
 
-      // Redirigir a ePayco
+      // ✅ Redirigir directamente a la URL de pago de ePayco
       setTimeout(() => {
-        redirectToEpayco(paymentData.checkoutData, paymentData.checkoutUrl)
+        window.location.href = paymentData.paymentUrl
       }, 500)
 
     } catch (error: any) {
