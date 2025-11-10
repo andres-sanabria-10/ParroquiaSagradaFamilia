@@ -1,4 +1,5 @@
 // app/api/payment/verify/route.ts
+"use client";
 import { NextRequest, NextResponse } from 'next/server'
 
 const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
