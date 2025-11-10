@@ -1,3 +1,4 @@
+// app/payment/response/page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -15,99 +16,117 @@ export default function PaymentResponsePage() {
   const [verifying, setVerifying] = useState(true)
 
   useEffect(() => {
-    const verifyPayment = async () => {
+    const fetchPaymentStatusFromBackend = async () => {
       try {
-        // Obtener parámetros de ePayco
-        const ref_payco = searchParams.get('ref_payco')
-        const response_code = searchParams.get('x_cod_response')
-        const transaction_id = searchParams.get('x_transaction_id')
-        const amount = searchParams.get('x_amount')
-        const response_message = searchParams.get('x_response')
+        // Obtener la referencia interna de la factura (invoice) que tu backend incluyó en la responseUrl
+        const internalInvoiceRef = searchParams.get('invoice')
 
-        console.log('📨 Respuesta de ePayco:', {
+        // También capturamos la referencia de ePayco y el código de respuesta inicial,
+        // aunque el estado final lo dará el backend.
+        const ref_payco = searchParams.get('ref_payco') 
+        const response_code_epayco = searchParams.get('x_cod_response')
+        const transaction_id_epayco = searchParams.get('x_transaction_id')
+        const amount_epayco = searchParams.get('x_amount')
+        const response_message_epayco = searchParams.get('x_response')
+
+        console.log('📨 Parámetros de ePayco en la URL (iniciales):', {
+          internalInvoiceRef,
           ref_payco,
-          response_code,
-          transaction_id,
-          amount,
-          response_message
+          response_code_epayco,
+          transaction_id_epayco,
+          amount_epayco,
+          response_message_epayco
         })
 
-        setPaymentInfo({
-          reference: ref_payco,
-          transactionId: transaction_id,
-          amount: amount,
-          code: response_code,
-          message: response_message
-        })
-
-        // Determinar estado inicial
-        let initialStatus: typeof status = 'failed'
-        if (response_code === '1') {
-          initialStatus = 'success'
-        } else if (response_code === '2') {
-          initialStatus = 'rejected'
-        } else if (response_code === '3') {
-          initialStatus = 'pending'
-        } else if (response_code === '4') {
-          initialStatus = 'failed'
+        if (!internalInvoiceRef) {
+          console.error('❌ No se encontró la referencia interna de la factura (invoice) en la URL.')
+          setStatus('failed')
+          setVerifying(false)
+          toast.error('Error al procesar el pago', {
+            description: 'No se pudo identificar la transacción. Por favor, revisa tu historial de pagos.'
+          })
+          return
         }
 
-        setStatus(initialStatus)
+        // 🔍 Consultando estado final del pago al backend
+        console.log('🔍 Consultando estado final del pago al backend para referencia:', internalInvoiceRef)
+        const backendStatusResponse = await fetch(`/api/payment/status/${internalInvoiceRef}`, {
+          method: 'GET', // Usamos GET para CONSULTAR el estado ya establecido por el webhook
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        })
 
-        // 🔥 IMPORTANTE: Notificar al backend sobre el pago
-        // Solo si tenemos la referencia de pago
-        if (ref_payco) {
-          try {
-            console.log('🔔 Notificando al backend sobre el pago...')
-            
-            const verifyResponse = await fetch('/api/payment/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              credentials: 'include',
-              body: JSON.stringify({
-                ref_payco,
-                transaction_id,
-                response_code,
-              })
+        if (!backendStatusResponse.ok) {
+          const errorData = await backendStatusResponse.json()
+          console.error('❌ Error al consultar estado del pago con el backend:', errorData)
+          toast.error('Error al verificar el estado de tu pago.', {
+            description: 'Hubo un problema de comunicación. Por favor, consulta el historial o contacta a soporte.'
+          })
+          setStatus('failed')
+          setVerifying(false)
+          return
+        }
+
+        const backendPaymentData = await backendStatusResponse.json()
+        console.log('✅ Estado del pago confirmado por backend:', backendPaymentData)
+
+        if (backendPaymentData.success && backendPaymentData.payment) {
+          const finalStatus = backendPaymentData.payment.status
+
+          // Mapea el estado del backend a tu UI
+          if (finalStatus === 'approved') {
+            setStatus('success')
+            toast.success('¡Pago confirmado!', {
+              description: 'Tu solicitud será procesada pronto.'
             })
-
-            if (verifyResponse.ok) {
-              const verifyData = await verifyResponse.json()
-              console.log('✅ Verificación exitosa:', verifyData)
-              
-              // Actualizar estado basado en la verificación del backend
-              if (verifyData.status === 'approved') {
-                setStatus('success')
-                toast.success('¡Pago confirmado!', {
-                  description: 'Tu solicitud será procesada pronto.'
-                })
-              } else if (verifyData.status === 'pending') {
-                setStatus('pending')
-                toast.info('Pago pendiente', {
-                  description: 'Estamos verificando tu pago.'
-                })
-              }
-            } else {
-              console.warn('⚠️ No se pudo verificar el pago con el backend')
-            }
-          } catch (verifyError) {
-            console.error('❌ Error al verificar pago:', verifyError)
-            // No cambiamos el status, dejamos el que ePayco nos dio
+          } else if (finalStatus === 'pending') {
+            setStatus('pending')
+            toast.info('Pago pendiente', {
+              description: 'Estamos verificando tu pago. Te notificaremos cuando sea confirmado.'
+            })
+          } else if (finalStatus === 'rejected') {
+            setStatus('rejected')
+            toast.error('Pago rechazado', {
+              description: 'Tu pago no pudo ser procesado. Intenta nuevamente.'
+            })
+          } else { // 'failed' u otros estados no esperados
+            setStatus('failed')
+            toast.error('Pago fallido', {
+              description: 'Ocurrió un error con tu pago. Por favor, revisa los detalles o intenta de nuevo.'
+            })
           }
+
+          // Rellenar la información del pago para mostrar en la UI
+          setPaymentInfo({
+            reference: backendPaymentData.payment.referenceCode, // Tu referencia interna
+            transactionId: backendPaymentData.payment.epaycoData?.transactionId || transaction_id_epayco || 'N/A', // O la de ePayco si no está en tu DB
+            amount: backendPaymentData.payment.amount,
+            code: backendPaymentData.payment.epaycoData?.responseCode || response_code_epayco || 'N/A',
+            message: backendPaymentData.payment.epaycoData?.responseMessage || response_message_epayco || 'N/A'
+          })
+        } else {
+          console.warn('⚠️ El backend no devolvió datos de pago válidos o no encontró el pago.')
+          setStatus('failed')
+          toast.error('No se pudo encontrar el estado final de tu pago.', {
+            description: 'Por favor, contacta a soporte si el problema persiste.'
+          })
         }
 
       } catch (error) {
-        console.error('❌ Error procesando respuesta de pago:', error)
+        console.error('❌ Error general procesando respuesta de pago:', error)
         setStatus('failed')
+        toast.error('Error inesperado al procesar la respuesta de pago.', {
+            description: 'Intenta consultar tu historial de pagos.'
+        })
       } finally {
         setVerifying(false)
       }
     }
 
-    verifyPayment()
-  }, [searchParams])
+    fetchPaymentStatusFromBackend()
+  }, [searchParams, router])
 
   const getStatusConfig = () => {
     switch (status) {
@@ -172,8 +191,8 @@ export default function PaymentResponsePage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {paymentInfo.reference && (
                   <>
-                    <span className="text-muted-foreground">Referencia:</span>
-                    <span className="font-mono text-xs">{paymentInfo.reference}</span>
+                    <span className="text-muted-foreground">Referencia Interna:</span>
+                    <span className="font-mono text-xs break-all">{paymentInfo.reference}</span>
                   </>
                 )}
                 
@@ -188,20 +207,18 @@ export default function PaymentResponsePage() {
                 
                 {paymentInfo.transactionId && (
                   <>
-                    <span className="text-muted-foreground">Transacción:</span>
-                    <span className="font-mono text-xs">{paymentInfo.transactionId}</span>
+                    <span className="text-muted-foreground">Transacción ePayco:</span>
+                    <span className="font-mono text-xs break-all">{paymentInfo.transactionId}</span>
                   </>
                 )}
-
                 {paymentInfo.message && (
                   <>
-                    <span className="text-muted-foreground">Estado:</span>
+                    <span className="text-muted-foreground">Estado ePayco:</span>
                     <span className="text-xs">{paymentInfo.message}</span>
                   </>
                 )}
               </div>
             </div>
-
             <div className="flex gap-2 pt-4">
               <Button 
                 variant="outline" 
@@ -219,7 +236,6 @@ export default function PaymentResponsePage() {
             </div>
           </CardContent>
         )}
-
         {verifying && (
           <CardContent className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
