@@ -1,4 +1,4 @@
-// ✅ app/api/payment/verify/route.ts
+// app/api/payment/verify/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
@@ -15,10 +15,13 @@ export async function POST(request: NextRequest) {
 
     if (!jwt) {
       console.error('❌ JWT ausente en verificación de pago')
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'No autorizado' }, 
+        { status: 401 }
+      )
     }
 
-    // Llamar al endpoint del backend
+    // Llamar al endpoint de verificación del backend
     const backendResponse = await fetch(`${API_URL}/payment/verify`, {
       method: 'POST',
       headers: {
@@ -35,14 +38,12 @@ export async function POST(request: NextRequest) {
     console.log('📡 Backend verification response status:', backendResponse.status)
 
     if (!backendResponse.ok) {
-      let errorData = null;
-      try {
-        errorData = await backendResponse.json()
-      } catch {
-        errorData = { error: 'Respuesta vacía del servidor' }
-      }
+      const errorData = await backendResponse.json()
       console.error('❌ Error del backend al verificar pago:', errorData)
-      return NextResponse.json(errorData, { status: backendResponse.status })
+      return NextResponse.json(
+        errorData, 
+        { status: backendResponse.status }
+      )
     }
 
     const responseData = await backendResponse.json()
