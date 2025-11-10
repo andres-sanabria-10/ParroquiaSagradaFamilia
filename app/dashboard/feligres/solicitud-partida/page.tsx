@@ -1,13 +1,14 @@
 // app/dashboard/feligres/solicitud-partida/page.tsx
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ClipboardList, Calendar, History, Church, Loader2, BookOpen, Heart, Cross } from "lucide-react"
 import { useRouter } from "next/navigation"
+import Script from "next/script"
 
 const sidebarItems = [
   {
@@ -56,61 +57,83 @@ const partidaTypes = [
   },
 ]
 
+// Declarar el tipo de ePayco para TypeScript
+declare global {
+  interface Window {
+    ePayco: any;
+  }
+}
+
 export default function SolicitudPartidaFeligres() {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
+  const [epaycoLoaded, setEpaycoLoaded] = useState(false)
   const router = useRouter()
-  const formRef = useRef<HTMLFormElement>(null)
 
-  // 🔥 Función para crear el formulario de ePayco y enviarlo automáticamente
-  const submitToEpayco = (epaycoData: any) => {
-    console.log("📝 Creando formulario de ePayco con datos:", epaycoData)
+  // 🔥 Función para abrir el checkout de ePayco
+  const openEpaycoCheckout = (epaycoData: any) => {
+    console.log("💳 Abriendo checkout de ePayco con datos:", epaycoData)
 
-    // Crear formulario dinámicamente
-    const form = document.createElement('form')
-    form.method = 'POST'
-    form.action = 'https://checkout.epayco.co/checkout.js'
-    form.style.display = 'none'
-
-    // Agregar todos los campos
-    const fields = {
-      'public-key': epaycoData.publicKey,
-      'invoice': epaycoData.invoice,
-      'description': epaycoData.description,
-      'amount': epaycoData.amount,
-      'tax_base': epaycoData.taxBase,
-      'tax': epaycoData.tax,
-      'currency': epaycoData.currency,
-      'country': epaycoData.country,
-      'response': epaycoData.responseUrl,
-      'confirmation': epaycoData.confirmationUrl,
-      'name-billing': epaycoData.nameFactura,
-      'email-billing': epaycoData.emailFactura,
-      'mobilephone-billing': epaycoData.mobilePhoneFactura,
-      'address-billing': epaycoData.addressFactura,
-      'type-doc-billing': epaycoData.typeDocFactura,
-      'number-doc-billing': epaycoData.numberDocFactura,
-      'extra1': epaycoData.extra1,
-      'extra2': epaycoData.extra2,
-      'extra3': epaycoData.extra3,
-      'lang': epaycoData.lang,
-      'external': epaycoData.external,
-      'test': epaycoData.test,
-      'methodsDisable': epaycoData.methodsDisable,
+    // Verificar que el script de ePayco esté cargado
+    if (typeof window.ePayco === 'undefined') {
+      console.error('❌ El script de ePayco no está cargado')
+      toast.error('Error al cargar el sistema de pagos', {
+        description: 'Por favor, recarga la página e intenta de nuevo.'
+      })
+      return
     }
 
-    // Crear inputs ocultos
-    Object.entries(fields).forEach(([name, value]) => {
-      const input = document.createElement('input')
-      input.type = 'hidden'
-      input.name = name
-      input.value = String(value)
-      form.appendChild(input)
-    })
+    try {
+      // Crear el handler de ePayco
+      const handler = window.ePayco.checkout.configure({
+        key: epaycoData.publicKey,
+        test: epaycoData.test === 'true'
+      })
 
-    // Agregar al DOM, enviar y eliminar
-    document.body.appendChild(form)
-    console.log("✅ Formulario creado, enviando a ePayco...")
-    form.submit()
+      // Datos para el checkout
+      const data = {
+        // Información de la transacción
+        name: epaycoData.description,
+        description: epaycoData.description,
+        invoice: epaycoData.invoice,
+        currency: epaycoData.currency,
+        amount: epaycoData.amount,
+        tax_base: epaycoData.taxBase,
+        tax: epaycoData.tax,
+        country: epaycoData.country,
+        lang: epaycoData.lang,
+        
+        // URLs de respuesta
+        external: epaycoData.external === 'true',
+        response: epaycoData.responseUrl,
+        confirmation: epaycoData.confirmationUrl,
+        
+        // Información del comprador
+        name_billing: epaycoData.nameFactura,
+        address_billing: epaycoData.addressFactura,
+        type_doc_billing: epaycoData.typeDocFactura,
+        mobilephone_billing: epaycoData.mobilePhoneFactura,
+        number_doc_billing: epaycoData.numberDocFactura,
+        
+        // Datos extras
+        extra1: epaycoData.extra1,
+        extra2: epaycoData.extra2,
+        extra3: epaycoData.extra3,
+        
+        // Métodos de pago
+        methodsDisable: epaycoData.methodsDisable ? JSON.parse(epaycoData.methodsDisable) : [],
+      }
+
+      console.log("✅ Abriendo checkout con configuración:", data)
+      
+      // Abrir el checkout
+      handler.open(data)
+      
+    } catch (error) {
+      console.error('❌ Error al abrir checkout de ePayco:', error)
+      toast.error('Error al abrir la pasarela de pago', {
+        description: 'Por favor, intenta de nuevo.'
+      })
+    }
   }
 
   // 🔥 Función principal: Crear solicitud + Iniciar pago
@@ -203,15 +226,15 @@ export default function SolicitudPartidaFeligres() {
         throw new Error('No se recibieron los datos de pago')
       }
 
-      // ━━━ PASO 3: Enviar formulario a ePayco ━━━
-      console.log("🌐 Paso 3: Redirigiendo a ePayco...")
-      toast.success("Redirigiendo a la pasarela de pago...", {
+      // ━━━ PASO 3: Abrir checkout de ePayco ━━━
+      console.log("🌐 Paso 3: Abriendo checkout de ePayco...")
+      toast.success("Abriendo pasarela de pago...", {
         duration: 2000,
       })
 
-      // ✅ Crear y enviar el formulario automáticamente
+      // ✅ Abrir el checkout usando el objeto ePayco
       setTimeout(() => {
-        submitToEpayco(paymentData.epaycoData)
+        openEpaycoCheckout(paymentData.epaycoData)
       }, 500)
 
     } catch (error: any) {
@@ -226,78 +249,101 @@ export default function SolicitudPartidaFeligres() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar items={sidebarItems} userRole="feligrés" />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Solicitud de Partidas</h1>
-          <p className="text-muted-foreground">Selecciona el tipo de partida sacramental que deseas solicitar y procede con el pago.</p>
-        </div>
+    <>
+      {/* 🔥 Cargar el script de ePayco */}
+      <Script
+        src="https://checkout.epayco.co/checkout.js"
+        strategy="afterInteractive"
+        onLoad={() => {
+          console.log("✅ Script de ePayco cargado")
+          setEpaycoLoaded(true)
+        }}
+        onError={(e) => {
+          console.error("❌ Error al cargar script de ePayco:", e)
+          toast.error("Error al cargar el sistema de pagos")
+        }}
+      />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {partidaTypes.map((partida) => {
-            const isLoading = loadingStates[partida.type] || false
-            return (
-              <Card key={partida.type} className="flex flex-col">
-                <CardHeader className="flex-row items-center gap-4">
-                  <partida.icon className="h-10 w-10 text-primary" />
-                  <div>
-                    <CardTitle>{partida.title}</CardTitle>
-                    <CardDescription>{partida.description}</CardDescription>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-grow space-y-3">
-                  <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                    <p>
-                      Al solicitar, se buscará tu partida registrada en nuestro sistema y se generará una solicitud.
-                    </p>
-                  </div>
-                  
-                  {/* 💰 Mostrar precio */}
-                  <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
-                    <span className="text-sm font-medium">Valor:</span>
-                    <span className="text-lg font-bold text-primary">
-                      ${partida.price.toLocaleString('es-CO')} COP
-                    </span>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    className="w-full"
-                    onClick={() => handleRequestDepartureWithPayment(partida.type, partida.price)}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Procesando...
-                      </>
-                    ) : (
-                      "Solicitar y Pagar"
-                    )}
-                  </Button>
-                </CardFooter>
-              </Card>
-            )
-          })}
-        </div>
+      <div className="flex h-screen bg-background">
+        <Sidebar items={sidebarItems} userRole="feligrés" />
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground">Solicitud de Partidas</h1>
+            <p className="text-muted-foreground">Selecciona el tipo de partida sacramental que deseas solicitar y procede con el pago.</p>
+          </div>
 
-        {/* 📋 Información adicional */}
-        <Card className="mt-8 border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-lg">ℹ️ Información Importante</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>• El pago se realiza a través de ePayco de forma segura.</p>
-            <p>• Una vez confirmado el pago, tu solicitud será procesada.</p>
-            <p>• Recibirás el documento en tu correo electrónico registrado.</p>
-            <p>• Puedes ver el estado de tus solicitudes en la sección "Historial".</p>
-          </CardContent>
-        </Card>
+          {!epaycoLoaded && (
+            <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                ⏳ Cargando sistema de pagos...
+              </p>
+            </div>
+          )}
 
-        {/* Formulario oculto para referencia (opcional) */}
-        <form ref={formRef} style={{ display: 'none' }} />
-      </main>
-    </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {partidaTypes.map((partida) => {
+              const isLoading = loadingStates[partida.type] || false
+              return (
+                <Card key={partida.type} className="flex flex-col">
+                  <CardHeader className="flex-row items-center gap-4">
+                    <partida.icon className="h-10 w-10 text-primary" />
+                    <div>
+                      <CardTitle>{partida.title}</CardTitle>
+                      <CardDescription>{partida.description}</CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex-grow space-y-3">
+                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                      <p>
+                        Al solicitar, se buscará tu partida registrada en nuestro sistema y se generará una solicitud.
+                      </p>
+                    </div>
+                    
+                    {/* 💰 Mostrar precio */}
+                    <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
+                      <span className="text-sm font-medium">Valor:</span>
+                      <span className="text-lg font-bold text-primary">
+                        ${partida.price.toLocaleString('es-CO')} COP
+                      </span>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      className="w-full"
+                      onClick={() => handleRequestDepartureWithPayment(partida.type, partida.price)}
+                      disabled={isLoading || !epaycoLoaded}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Procesando...
+                        </>
+                      ) : !epaycoLoaded ? (
+                        "Cargando sistema de pagos..."
+                      ) : (
+                        "Solicitar y Pagar"
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )
+            })}
+          </div>
+
+          {/* 📋 Información adicional */}
+          <Card className="mt-8 border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-lg">ℹ️ Información Importante</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>• El pago se realiza a través de ePayco de forma segura.</p>
+              <p>• Una vez confirmado el pago, tu solicitud será procesada.</p>
+              <p>• Recibirás el documento en tu correo electrónico registrado.</p>
+              <p>• Puedes ver el estado de tus solicitudes en la sección "Historial".</p>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    </>
   )
 }
