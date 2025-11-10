@@ -39,7 +39,7 @@ const partidaTypes = [
     description: "Solicita una copia de tu partida de Bautismo.",
     type: "Baptism",
     icon: BookOpen,
-    price: 50000,
+    price: 1000,
   },
   {
     title: "Confirmación",
