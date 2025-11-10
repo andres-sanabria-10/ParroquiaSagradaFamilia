@@ -88,7 +88,8 @@ export function middleware(request: NextRequest) {
     "/about",
     "/forgot-password",
     "/verify-email",
-    "/reset-password"
+    "/reset-password",
+    "/payment/response"
   ]
   
   const isPublicPath = publicPaths.some(path => 
