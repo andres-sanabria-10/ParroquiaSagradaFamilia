@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CheckCircle, XCircle, Loader2, Clock, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -14,15 +15,12 @@ export default function PaymentResponsePage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'rejected' | 'pending' | 'failed'>('loading')
   const [paymentInfo, setPaymentInfo] = useState<any>(null)
   const [verifying, setVerifying] = useState(true)
+  const [open, setOpen] = useState(true) // Control del modal
 
   useEffect(() => {
     const fetchPaymentStatusFromBackend = async () => {
       try {
-        // Obtener la referencia interna de la factura (invoice) que tu backend incluyó en la responseUrl
         const internalInvoiceRef = searchParams.get('invoice')
-
-        // También capturamos la referencia de ePayco y el código de respuesta inicial,
-        // aunque el estado final lo dará el backend.
         const ref_payco = searchParams.get('ref_payco') 
         const response_code_epayco = searchParams.get('x_cod_response')
         const transaction_id_epayco = searchParams.get('x_transaction_id')
@@ -48,10 +46,9 @@ export default function PaymentResponsePage() {
           return
         }
 
-        // 🔍 Consultando estado final del pago al backend
         console.log('🔍 Consultando estado final del pago al backend para referencia:', internalInvoiceRef)
         const backendStatusResponse = await fetch(`/api/payment/status/${internalInvoiceRef}`, {
-          method: 'GET', // Usamos GET para CONSULTAR el estado ya establecido por el webhook
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
@@ -75,7 +72,6 @@ export default function PaymentResponsePage() {
         if (backendPaymentData.success && backendPaymentData.payment) {
           const finalStatus = backendPaymentData.payment.status
 
-          // Mapea el estado del backend a tu UI
           if (finalStatus === 'approved') {
             setStatus('success')
             toast.success('¡Pago confirmado!', {
@@ -91,17 +87,16 @@ export default function PaymentResponsePage() {
             toast.error('Pago rechazado', {
               description: 'Tu pago no pudo ser procesado. Intenta nuevamente.'
             })
-          } else { // 'failed' u otros estados no esperados
+          } else {
             setStatus('failed')
             toast.error('Pago fallido', {
               description: 'Ocurrió un error con tu pago. Por favor, revisa los detalles o intenta de nuevo.'
             })
           }
 
-          // Rellenar la información del pago para mostrar en la UI
           setPaymentInfo({
-            reference: backendPaymentData.payment.referenceCode, // Tu referencia interna
-            transactionId: backendPaymentData.payment.epaycoData?.transactionId || transaction_id_epayco || 'N/A', // O la de ePayco si no está en tu DB
+            reference: backendPaymentData.payment.referenceCode,
+            transactionId: backendPaymentData.payment.epaycoData?.transactionId || transaction_id_epayco || 'N/A',
             amount: backendPaymentData.payment.amount,
             code: backendPaymentData.payment.epaycoData?.responseCode || response_code_epayco || 'N/A',
             message: backendPaymentData.payment.epaycoData?.responseMessage || response_message_epayco || 'N/A'
@@ -126,122 +121,159 @@ export default function PaymentResponsePage() {
     }
 
     fetchPaymentStatusFromBackend()
-  }, [searchParams, router])
+  }, [searchParams])
 
   const getStatusConfig = () => {
     switch (status) {
       case 'success':
         return {
-          icon: <CheckCircle className="h-16 w-16 text-green-500" />,
+          icon: <CheckCircle className="h-20 w-20 text-green-500 mx-auto" />,
           title: '¡Pago Exitoso!',
           message: 'Tu pago ha sido procesado correctamente. Tu solicitud será procesada pronto y recibirás el documento en tu correo.',
-          color: 'border-green-500/20 bg-green-500/5'
+          color: 'text-green-600'
         }
       case 'rejected':
         return {
-          icon: <XCircle className="h-16 w-16 text-red-500" />,
+          icon: <XCircle className="h-20 w-20 text-red-500 mx-auto" />,
           title: 'Pago Rechazado',
           message: 'Tu pago no pudo ser procesado. Por favor, verifica los datos de tu tarjeta e intenta nuevamente.',
-          color: 'border-red-500/20 bg-red-500/5'
+          color: 'text-red-600'
         }
       case 'pending':
         return {
-          icon: <Clock className="h-16 w-16 text-yellow-500" />,
+          icon: <Clock className="h-20 w-20 text-yellow-500 mx-auto" />,
           title: 'Pago Pendiente',
           message: 'Tu pago está siendo verificado. Te notificaremos por correo cuando sea confirmado.',
-          color: 'border-yellow-500/20 bg-yellow-500/5'
+          color: 'text-yellow-600'
         }
       case 'failed':
         return {
-          icon: <AlertCircle className="h-16 w-16 text-orange-500" />,
+          icon: <AlertCircle className="h-20 w-20 text-orange-500 mx-auto" />,
           title: 'Pago Fallido',
           message: 'Ocurrió un error al procesar tu pago. Por favor, intenta nuevamente más tarde.',
-          color: 'border-orange-500/20 bg-orange-500/5'
+          color: 'text-orange-600'
         }
       default:
         return {
-          icon: <Loader2 className="h-16 w-16 animate-spin text-primary" />,
+          icon: <Loader2 className="h-20 w-20 animate-spin text-primary mx-auto" />,
           title: 'Verificando...',
           message: 'Estamos verificando el estado de tu pago...',
-          color: 'border-primary/20 bg-primary/5'
+          color: 'text-primary'
         }
     }
   }
 
   const config = getStatusConfig()
 
+  const handleClose = () => {
+    setOpen(false)
+    // Pequeño delay para que la animación se complete antes de redirigir
+    setTimeout(() => {
+      router.push('/dashboard/feligres')
+    }, 200)
+  }
+
+  const handleViewHistory = () => {
+    setOpen(false)
+    setTimeout(() => {
+      router.push('/dashboard/feligres/historial')
+    }, 200)
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className={`w-full max-w-md border-2 ${config.color}`}>
-        <CardHeader>
-          <div className="flex justify-center mb-4">
+    <>
+      {/* Fondo oscuro mientras carga */}
+      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40" />
+      
+      {/* Modal de resultado del pago */}
+      <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+        <DialogContent className="sm:max-w-[500px] gap-0 p-0 overflow-hidden">
+          {/* Header con ícono */}
+          <div className="pt-8 pb-6">
             {config.icon}
           </div>
-          <CardTitle className="text-2xl text-center">
-            {config.title}
-          </CardTitle>
-          <CardDescription className="text-center text-base">
-            {config.message}
-          </CardDescription>
-        </CardHeader>
-        
-        {paymentInfo && !verifying && (
-          <CardContent className="space-y-4">
-            <div className="border-t pt-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {paymentInfo.reference && (
-                  <>
-                    <span className="text-muted-foreground">Referencia Interna:</span>
-                    <span className="font-mono text-xs break-all">{paymentInfo.reference}</span>
-                  </>
-                )}
+
+          {/* Título y descripción */}
+          <DialogHeader className="space-y-3 px-6 pb-4">
+            <DialogTitle className={`text-2xl font-bold text-center ${config.color}`}>
+              {config.title}
+            </DialogTitle>
+            <DialogDescription className="text-center text-base">
+              {config.message}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Detalles del pago */}
+          {paymentInfo && !verifying && (
+            <div className="px-6 py-4 bg-muted/30">
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                  Detalles de la transacción
+                </h4>
                 
-                {paymentInfo.amount && (
-                  <>
-                    <span className="text-muted-foreground">Monto:</span>
-                    <span className="font-semibold">
-                      ${parseInt(paymentInfo.amount || '0').toLocaleString('es-CO')} COP
-                    </span>
-                  </>
-                )}
-                
-                {paymentInfo.transactionId && (
-                  <>
-                    <span className="text-muted-foreground">Transacción ePayco:</span>
-                    <span className="font-mono text-xs break-all">{paymentInfo.transactionId}</span>
-                  </>
-                )}
-                {paymentInfo.message && (
-                  <>
-                    <span className="text-muted-foreground">Estado ePayco:</span>
-                    <span className="text-xs">{paymentInfo.message}</span>
-                  </>
-                )}
+                <div className="grid gap-2 text-sm">
+                  {paymentInfo.reference && (
+                    <div className="flex justify-between items-center py-2 border-b border-border/50">
+                      <span className="text-muted-foreground">Referencia:</span>
+                      <span className="font-mono text-xs font-medium">{paymentInfo.reference}</span>
+                    </div>
+                  )}
+                  
+                  {paymentInfo.amount && (
+                    <div className="flex justify-between items-center py-2 border-b border-border/50">
+                      <span className="text-muted-foreground">Monto:</span>
+                      <span className="font-bold text-base">
+                        ${parseInt(paymentInfo.amount || '0').toLocaleString('es-CO')} COP
+                      </span>
+                    </div>
+                  )}
+                  
+                  {paymentInfo.transactionId && paymentInfo.transactionId !== 'N/A' && (
+                    <div className="flex justify-between items-center py-2 border-b border-border/50">
+                      <span className="text-muted-foreground">ID Transacción:</span>
+                      <span className="font-mono text-xs">{paymentInfo.transactionId}</span>
+                    </div>
+                  )}
+
+                  {paymentInfo.message && paymentInfo.message !== 'N/A' && (
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-muted-foreground">Estado:</span>
+                      <span className="text-xs font-medium">{paymentInfo.message}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex gap-2 pt-4">
+          )}
+
+          {/* Loading state */}
+          {verifying && (
+            <div className="px-6 py-8 flex flex-col items-center gap-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Verificando estado del pago...</p>
+            </div>
+          )}
+
+          {/* Footer con botones */}
+          {!verifying && (
+            <DialogFooter className="px-6 py-4 bg-muted/20 sm:justify-between gap-2 flex-col sm:flex-row">
               <Button 
                 variant="outline" 
-                className="flex-1"
-                onClick={() => router.push('/dashboard/feligres/historial')}
+                className="w-full sm:w-auto"
+                onClick={handleViewHistory}
               >
                 Ver Historial
               </Button>
               <Button 
-                className="flex-1"
-                onClick={() => router.push('/dashboard/feligres')}
+                className="w-full sm:w-auto"
+                onClick={handleClose}
               >
                 Ir al Inicio
               </Button>
-            </div>
-          </CardContent>
-        )}
-        {verifying && (
-          <CardContent className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </CardContent>
-        )}
-      </Card>
-    </div>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
