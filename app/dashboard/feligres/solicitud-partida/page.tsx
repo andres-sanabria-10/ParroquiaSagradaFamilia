@@ -96,31 +96,53 @@ export default function SolicitudPartidaFeligres() {
         test: epaycoData.test === 'true'
       })
 
+      // 🔥 DATOS CORREGIDOS - Usando los nombres correctos del backend
       const data = {
-        name: epaycoData.description,
+        // Información del producto
+        name: epaycoData.name || epaycoData.description,
         description: epaycoData.description,
         invoice: epaycoData.invoice,
         currency: epaycoData.currency,
         amount: epaycoData.amount,
-        tax_base: epaycoData.taxBase,
-        tax: epaycoData.tax,
+        tax_base: epaycoData.taxBase || epaycoData.tax_base || '0',
+        tax: epaycoData.tax || '0',
+        
+        // Configuración regional
         country: epaycoData.country,
         lang: epaycoData.lang,
+        
+        // URLs de respuesta (CRÍTICO - external debe ser true)
         external: epaycoData.external === 'true',
         response: epaycoData.responseUrl,
         confirmation: epaycoData.confirmationUrl,
-        name_billing: epaycoData.nameFactura,
-        address_billing: epaycoData.addressFactura,
-        type_doc_billing: epaycoData.typeDocFactura,
-        mobilephone_billing: epaycoData.mobilePhoneFactura,
-        number_doc_billing: epaycoData.numberDocFactura,
+        
+        // 🔥 INFORMACIÓN DE FACTURACIÓN - NOMBRES CORRECTOS
+        name_billing: epaycoData.name_billing,
+        email_billing: epaycoData.email_billing, // ⚠️ CRÍTICO - Faltaba este campo
+        address_billing: epaycoData.address_billing,
+        type_doc_billing: epaycoData.type_doc_billing,
+        mobilephone_billing: epaycoData.mobilephone_billing,
+        number_doc_billing: epaycoData.number_doc_billing,
+        
+        // Extras
         extra1: epaycoData.extra1,
         extra2: epaycoData.extra2,
         extra3: epaycoData.extra3,
+        
+        // Métodos deshabilitados
         methodsDisable: epaycoData.methodsDisable ? JSON.parse(epaycoData.methodsDisable) : [],
       }
 
-      console.log("✅ Abriendo checkout con configuración:", data)
+      console.log("✅ Datos preparados para checkout:", {
+        invoice: data.invoice,
+        amount: data.amount,
+        external: data.external,
+        name_billing: data.name_billing,
+        email_billing: data.email_billing,
+        mobilephone_billing: data.mobilephone_billing,
+        type_doc_billing: data.type_doc_billing
+      })
+
       handler.open(data)
       
     } catch (error) {
@@ -131,7 +153,7 @@ export default function SolicitudPartidaFeligres() {
     }
   }
 
-  // 📝 Validar formulario
+  // 🔍 Validar formulario
   const validateForm = () => {
     // Validar teléfono (10 dígitos)
     const phoneRegex = /^[0-9]{10}$/
@@ -174,7 +196,7 @@ export default function SolicitudPartidaFeligres() {
     setShowModal(false) // Cerrar modal
   
     try {
-      // ━━━ PASO 1: Crear la solicitud de partida ━━━
+      // ══════ PASO 1: Crear la solicitud de partida ══════
       console.log("📝 Paso 1: Creando solicitud de partida...")
       const requestResponse = await fetch("/api/requestDeparture", {
         method: "POST",
@@ -219,7 +241,7 @@ export default function SolicitudPartidaFeligres() {
 
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // ━━━ PASO 2: Crear el pago (con teléfono y dirección) ━━━
+      // ══════ PASO 2: Crear el pago ══════
       console.log("💳 Paso 2: Creando pago...")
       
       const paymentResponse = await fetch('/api/payment/create', {
@@ -231,8 +253,8 @@ export default function SolicitudPartidaFeligres() {
           serviceId: requestId,
           amount: price,
           description: `Pago por certificado de ${departureType.toLowerCase()}`,
-          phone: phoneNumber, // 📱 Enviar teléfono
-          address: address,   // 🏠 Enviar dirección
+          phone: phoneNumber,
+          address: address,
         })
       })
 
@@ -258,7 +280,7 @@ export default function SolicitudPartidaFeligres() {
         throw new Error('No se recibieron los datos de pago')
       }
 
-      // ━━━ PASO 3: Abrir checkout de ePayco ━━━
+      // ══════ PASO 3: Abrir checkout de ePayco ══════
       console.log("🌐 Paso 3: Abriendo checkout de ePayco...")
       toast.success("Abriendo pasarela de pago...", {
         duration: 2000,
