@@ -64,28 +64,33 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 // --- Sidebar ---
 const sidebarItems = [
   {
+    title: "Registro de Administrador",
+    href: "/dashboard/parroco/registro",
+    icon: UserPlus,
+  },
+  {
     title: "Gestión de Partidas",
-    href: "/dashboard/secretaria/partidas",
+    href: "/dashboard/parroco/partidas",
     icon: FileText,
   },
   {
     title: "Solicitudes de Partidas",
-    href: "/dashboard/secretaria/solicitud-partida",
+    href: "/dashboard/parroco/solicitud-partida",
     icon: ClipboardList,
   },
   {
     title: "Gestión de Misas",
-    href: "/dashboard/secretaria/misas",
+    href: "/dashboard/parroco/misas",
     icon: Church,
   },
   {
     title: "Solicitudes de Misa",
-    href: "/dashboard/secretaria/solicitud-misa",
+    href: "/dashboard/parroco/solicitud-misa",
     icon: Calendar,
   },
   {
     title: "Contabilidad",
-    href: "/dashboard/secretaria/contabilidad",
+    href: "/dashboard/parroco/contabilidad",
     icon: DollarSign,
   },
 ]
@@ -360,7 +365,7 @@ export default function GestionSolicitudesMisa() {
   return (
     <>
       <div className="flex h-screen bg-background">
-        <Sidebar items={sidebarItems} userRole="secretaria" />
+        <Sidebar items={sidebarItems} userRole="Párroco" />
         <main className="flex-1 overflow-y-auto">
           <div className="p-6">
             <div className="mb-8">
