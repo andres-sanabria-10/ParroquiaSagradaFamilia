@@ -1,11 +1,14 @@
 // app/dashboard/feligres/solicitud-partida/page.tsx
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { ClipboardList, Calendar, History, Church, Loader2, BookOpen, Heart, Cross } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Script from "next/script"
@@ -57,7 +60,6 @@ const partidaTypes = [
   },
 ]
 
-// Declarar el tipo de ePayco para TypeScript
 declare global {
   interface Window {
     ePayco: any;
@@ -67,13 +69,19 @@ declare global {
 export default function SolicitudPartidaFeligres() {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
   const [epaycoLoaded, setEpaycoLoaded] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [selectedPartida, setSelectedPartida] = useState<{ type: string; price: number } | null>(null)
+  
+  // 📱 Datos adicionales del usuario
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [address, setAddress] = useState("")
+  
   const router = useRouter()
 
   // 🔥 Función para abrir el checkout de ePayco
   const openEpaycoCheckout = (epaycoData: any) => {
     console.log("💳 Abriendo checkout de ePayco con datos:", epaycoData)
 
-    // Verificar que el script de ePayco esté cargado
     if (typeof window.ePayco === 'undefined') {
       console.error('❌ El script de ePayco no está cargado')
       toast.error('Error al cargar el sistema de pagos', {
@@ -83,15 +91,12 @@ export default function SolicitudPartidaFeligres() {
     }
 
     try {
-      // Crear el handler de ePayco
       const handler = window.ePayco.checkout.configure({
         key: epaycoData.publicKey,
         test: epaycoData.test === 'true'
       })
 
-      // Datos para el checkout
       const data = {
-        // Información de la transacción
         name: epaycoData.description,
         description: epaycoData.description,
         invoice: epaycoData.invoice,
@@ -101,31 +106,21 @@ export default function SolicitudPartidaFeligres() {
         tax: epaycoData.tax,
         country: epaycoData.country,
         lang: epaycoData.lang,
-        
-        // URLs de respuesta
         external: epaycoData.external === 'true',
         response: epaycoData.responseUrl,
         confirmation: epaycoData.confirmationUrl,
-        
-        // Información del comprador
         name_billing: epaycoData.nameFactura,
         address_billing: epaycoData.addressFactura,
         type_doc_billing: epaycoData.typeDocFactura,
         mobilephone_billing: epaycoData.mobilePhoneFactura,
         number_doc_billing: epaycoData.numberDocFactura,
-        
-        // Datos extras
         extra1: epaycoData.extra1,
         extra2: epaycoData.extra2,
         extra3: epaycoData.extra3,
-        
-        // Métodos de pago
         methodsDisable: epaycoData.methodsDisable ? JSON.parse(epaycoData.methodsDisable) : [],
       }
 
       console.log("✅ Abriendo checkout con configuración:", data)
-      
-      // Abrir el checkout
       handler.open(data)
       
     } catch (error) {
@@ -136,11 +131,47 @@ export default function SolicitudPartidaFeligres() {
     }
   }
 
+  // 📝 Validar formulario
+  const validateForm = () => {
+    // Validar teléfono (10 dígitos)
+    const phoneRegex = /^[0-9]{10}$/
+    if (!phoneNumber || !phoneRegex.test(phoneNumber)) {
+      toast.error("Teléfono inválido", {
+        description: "El teléfono debe tener 10 dígitos numéricos."
+      })
+      return false
+    }
+
+    // Validar dirección (mínimo 10 caracteres)
+    if (!address || address.trim().length < 10) {
+      toast.error("Dirección inválida", {
+        description: "La dirección debe tener al menos 10 caracteres."
+      })
+      return false
+    }
+
+    return true
+  }
+
+  // 🔥 Iniciar proceso desde el modal
+  const handleOpenModal = (type: string, price: number) => {
+    setSelectedPartida({ type, price })
+    setShowModal(true)
+  }
+
   // 🔥 Función principal: Crear solicitud + Iniciar pago
-  const handleRequestDepartureWithPayment = async (departureType: string, price: number) => {
+  const handleRequestDepartureWithPayment = async () => {
+    if (!selectedPartida) return
+
+    // Validar formulario
+    if (!validateForm()) return
+
+    const { type: departureType, price } = selectedPartida
+
     console.log("🚀 Iniciando solicitud de partida con pago:", departureType)
   
     setLoadingStates((prev) => ({ ...prev, [departureType]: true }))
+    setShowModal(false) // Cerrar modal
   
     try {
       // ━━━ PASO 1: Crear la solicitud de partida ━━━
@@ -186,10 +217,9 @@ export default function SolicitudPartidaFeligres() {
         duration: 2000,
       })
 
-      // Esperar 1 segundo antes de continuar al pago
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // ━━━ PASO 2: Crear el pago ━━━
+      // ━━━ PASO 2: Crear el pago (con teléfono y dirección) ━━━
       console.log("💳 Paso 2: Creando pago...")
       
       const paymentResponse = await fetch('/api/payment/create', {
@@ -200,7 +230,9 @@ export default function SolicitudPartidaFeligres() {
           serviceType: 'certificate',
           serviceId: requestId,
           amount: price,
-          description: `Pago por certificado de ${departureType.toLowerCase()}`
+          description: `Pago por certificado de ${departureType.toLowerCase()}`,
+          phone: phoneNumber, // 📱 Enviar teléfono
+          address: address,   // 🏠 Enviar dirección
         })
       })
 
@@ -232,7 +264,6 @@ export default function SolicitudPartidaFeligres() {
         duration: 2000,
       })
 
-      // ✅ Abrir el checkout usando el objeto ePayco
       setTimeout(() => {
         openEpaycoCheckout(paymentData.epaycoData)
       }, 500)
@@ -250,7 +281,6 @@ export default function SolicitudPartidaFeligres() {
 
   return (
     <>
-      {/* 🔥 Cargar el script de ePayco */}
       <Script
         src="https://checkout.epayco.co/checkout.js"
         strategy="afterInteractive"
@@ -263,6 +293,67 @@ export default function SolicitudPartidaFeligres() {
           toast.error("Error al cargar el sistema de pagos")
         }}
       />
+
+      {/* 📱 Modal para completar datos */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Completar Información</DialogTitle>
+            <DialogDescription>
+              Por favor, completa tu información de contacto para procesar el pago.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Teléfono Celular *</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="3001234567"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                maxLength={10}
+              />
+              <p className="text-xs text-muted-foreground">
+                10 dígitos sin espacios ni guiones
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="address">Dirección Completa *</Label>
+              <Input
+                id="address"
+                placeholder="Carrera 5 # 10-20, Sogamoso, Boyacá"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Incluye ciudad y departamento
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowModal(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleRequestDepartureWithPayment}
+              disabled={!phoneNumber || !address || loadingStates[selectedPartida?.type || '']}
+            >
+              {loadingStates[selectedPartida?.type || ''] ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                "Continuar al Pago"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex h-screen bg-background">
         <Sidebar items={sidebarItems} userRole="feligrés" />
@@ -299,7 +390,6 @@ export default function SolicitudPartidaFeligres() {
                       </p>
                     </div>
                     
-                    {/* 💰 Mostrar precio */}
                     <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
                       <span className="text-sm font-medium">Valor:</span>
                       <span className="text-lg font-bold text-primary">
@@ -310,7 +400,7 @@ export default function SolicitudPartidaFeligres() {
                   <CardFooter>
                     <Button
                       className="w-full"
-                      onClick={() => handleRequestDepartureWithPayment(partida.type, partida.price)}
+                      onClick={() => handleOpenModal(partida.type, partida.price)}
                       disabled={isLoading || !epaycoLoaded}
                     >
                       {isLoading ? (
@@ -330,13 +420,13 @@ export default function SolicitudPartidaFeligres() {
             })}
           </div>
 
-          {/* 📋 Información adicional */}
           <Card className="mt-8 border-primary/20">
             <CardHeader>
               <CardTitle className="text-lg">ℹ️ Información Importante</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground space-y-2">
               <p>• El pago se realiza a través de ePayco de forma segura.</p>
+              <p>• Se te pedirá completar tu teléfono y dirección antes del pago.</p>
               <p>• Una vez confirmado el pago, tu solicitud será procesada.</p>
               <p>• Recibirás el documento en tu correo electrónico registrado.</p>
               <p>• Puedes ver el estado de tus solicitudes en la sección "Historial".</p>
