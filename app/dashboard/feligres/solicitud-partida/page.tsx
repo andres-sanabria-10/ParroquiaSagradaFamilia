@@ -1,7 +1,7 @@
 // app/dashboard/feligres/solicitud-partida/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { toast } from "sonner"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
@@ -59,6 +59,59 @@ const partidaTypes = [
 export default function SolicitudPartidaFeligres() {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
   const router = useRouter()
+  const formRef = useRef<HTMLFormElement>(null)
+
+  // 🔥 Función para crear el formulario de ePayco y enviarlo automáticamente
+  const submitToEpayco = (epaycoData: any) => {
+    console.log("📝 Creando formulario de ePayco con datos:", epaycoData)
+
+    // Crear formulario dinámicamente
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = 'https://checkout.epayco.co/checkout.js'
+    form.style.display = 'none'
+
+    // Agregar todos los campos
+    const fields = {
+      'public-key': epaycoData.publicKey,
+      'invoice': epaycoData.invoice,
+      'description': epaycoData.description,
+      'amount': epaycoData.amount,
+      'tax_base': epaycoData.taxBase,
+      'tax': epaycoData.tax,
+      'currency': epaycoData.currency,
+      'country': epaycoData.country,
+      'response': epaycoData.responseUrl,
+      'confirmation': epaycoData.confirmationUrl,
+      'name-billing': epaycoData.nameFactura,
+      'email-billing': epaycoData.emailFactura,
+      'mobilephone-billing': epaycoData.mobilePhoneFactura,
+      'address-billing': epaycoData.addressFactura,
+      'type-doc-billing': epaycoData.typeDocFactura,
+      'number-doc-billing': epaycoData.numberDocFactura,
+      'extra1': epaycoData.extra1,
+      'extra2': epaycoData.extra2,
+      'extra3': epaycoData.extra3,
+      'lang': epaycoData.lang,
+      'external': epaycoData.external,
+      'test': epaycoData.test,
+      'methodsDisable': epaycoData.methodsDisable,
+    }
+
+    // Crear inputs ocultos
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.createElement('input')
+      input.type = 'hidden'
+      input.name = name
+      input.value = String(value)
+      form.appendChild(input)
+    })
+
+    // Agregar al DOM, enviar y eliminar
+    document.body.appendChild(form)
+    console.log("✅ Formulario creado, enviando a ePayco...")
+    form.submit()
+  }
 
   // 🔥 Función principal: Crear solicitud + Iniciar pago
   const handleRequestDepartureWithPayment = async (departureType: string, price: number) => {
@@ -133,7 +186,6 @@ export default function SolicitudPartidaFeligres() {
         try {
           error = await paymentResponse.json()
         } catch (parseError) {
-          // Si no puede parsear como JSON, obtener el texto
           const errorText = await paymentResponse.text()
           console.error("❌ Respuesta no-JSON del servidor:", errorText.substring(0, 200))
           throw new Error('Error del servidor al crear el pago. Por favor, intenta de nuevo.')
@@ -147,19 +199,19 @@ export default function SolicitudPartidaFeligres() {
       const paymentData = await paymentResponse.json()
       console.log('✅ Respuesta del pago:', paymentData)
       
-      if (!paymentData.success || !paymentData.paymentUrl) {
-        throw new Error('No se recibió la URL de pago')
+      if (!paymentData.success || !paymentData.epaycoData) {
+        throw new Error('No se recibieron los datos de pago')
       }
 
-      // ━━━ PASO 3: Redirigir a ePayco ━━━
+      // ━━━ PASO 3: Enviar formulario a ePayco ━━━
       console.log("🌐 Paso 3: Redirigiendo a ePayco...")
       toast.success("Redirigiendo a la pasarela de pago...", {
         duration: 2000,
       })
 
-      // ✅ Redirigir directamente a la URL de pago de ePayco
+      // ✅ Crear y enviar el formulario automáticamente
       setTimeout(() => {
-        window.location.href = paymentData.paymentUrl
+        submitToEpayco(paymentData.epaycoData)
       }, 500)
 
     } catch (error: any) {
@@ -242,6 +294,9 @@ export default function SolicitudPartidaFeligres() {
             <p>• Puedes ver el estado de tus solicitudes en la sección "Historial".</p>
           </CardContent>
         </Card>
+
+        {/* Formulario oculto para referencia (opcional) */}
+        <form ref={formRef} style={{ display: 'none' }} />
       </main>
     </div>
   )
