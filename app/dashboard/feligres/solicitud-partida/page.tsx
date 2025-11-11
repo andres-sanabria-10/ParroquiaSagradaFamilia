@@ -231,8 +231,20 @@ export default function SolicitudPartidaFeligres() {
       }
 
       console.log("✅ Datos preparados para ePayco:", JSON.stringify(data, null, 2))
+      console.log("ℹ️ Registrando callbacks de handler para debugging...")
+      try {
+        if (typeof handler.onErrors === 'function') handler.onErrors((err: any) => console.error('epayco onErrors:', err))
+        if (typeof handler.onResponse === 'function') handler.onResponse((res: any) => console.log('epayco onResponse:', res))
+        if (typeof handler.onCreated === 'function') handler.onCreated((res: any) => console.log('epayco onCreated:', res))
+        if (typeof handler.onClosed === 'function') handler.onClosed(() => console.log('epayco onClosed'))
+        if (typeof handler.onLoadTransactionId === 'function') handler.onLoadTransactionId((id: any) => console.log('epayco onLoadTransactionId:', id))
+        if (typeof handler.onCreatedTransactionId === 'function') handler.onCreatedTransactionId((id: any) => console.log('epayco onCreatedTransactionId:', id))
+        if (typeof handler.onTransactionIds === 'function') handler.onTransactionIds((ids: any) => console.log('epayco onTransactionIds:', ids))
+      } catch (cbErr) {
+        console.warn('Error registrando callbacks del handler:', cbErr)
+      }
+
       console.log("🚀 Llamando handler.open()...")
-      
       handler.open(data)
       
     } catch (error: any) {
