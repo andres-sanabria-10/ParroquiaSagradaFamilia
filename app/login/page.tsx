@@ -107,7 +107,7 @@ export default function LoginPage() {
     setRecoveryLoading(true)
 
     try {
-      const res = await fetch("https://api-parroquia.onrender.com/auth/forgot-password", {
+      const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
@@ -142,7 +142,7 @@ export default function LoginPage() {
     setRecoveryLoading(true)
 
     try {
-      const res = await fetch("https://api-parroquia.onrender.com/auth/verify-reset-code", {
+      const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/auth/verify-ResetCode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
@@ -187,7 +187,7 @@ export default function LoginPage() {
     setRecoveryLoading(true)
 
     try {
-      const res = await fetch("https://api-parroquia.onrender.com/auth/change-password", {
+      const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',

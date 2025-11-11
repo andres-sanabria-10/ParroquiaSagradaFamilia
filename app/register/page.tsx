@@ -39,7 +39,7 @@ export default function RegisterPage() {
   useEffect(() => {
     const fetchDocs = async () => {
       try {
-        const res = await fetch("https://api-parroquia.onrender.com/documentType/", {
+        const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/documentType/", {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         })
@@ -66,7 +66,7 @@ export default function RegisterPage() {
     setError(null)
     setLoading(true)
     try {
-      const res = await fetch("https://api-parroquia.onrender.com/auth/verify-Email", {
+      const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/auth/verify-Email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mail: email }),
@@ -95,7 +95,7 @@ export default function RegisterPage() {
     }
     setLoading(true)
     try {
-      const res = await fetch("https://api-parroquia.onrender.com/auth/verify-Code", {
+      const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/auth/verify-Code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mail: email, verificationCode }),
@@ -133,7 +133,7 @@ export default function RegisterPage() {
         password,
         role: "Usuario",
       }
-      const res = await fetch("https://api-parroquia.onrender.com/auth/register", {
+      const res = await fetch("https://api-parroquiasagradafamilia-s6qu.onrender.com/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
