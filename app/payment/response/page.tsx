@@ -15,7 +15,7 @@ export default function PaymentResponsePage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'rejected' | 'pending' | 'failed'>('loading')
   const [paymentInfo, setPaymentInfo] = useState<any>(null)
   const [verifying, setVerifying] = useState(true)
-  const [open, setOpen] = useState(true) // Control del modal
+  const [open, setOpen] = useState(true)
 
   useEffect(() => {
     const fetchPaymentStatusFromBackend = async () => {
@@ -47,6 +47,8 @@ export default function PaymentResponsePage() {
         }
 
         console.log('🔍 Consultando estado final del pago al backend para referencia:', internalInvoiceRef)
+        
+        // ✅ CORRECCIÓN: Cambiar la ruta para que coincida con el backend
         const backendStatusResponse = await fetch(`/api/payment/status/${internalInvoiceRef}`, {
           method: 'GET',
           headers: {
@@ -167,7 +169,6 @@ export default function PaymentResponsePage() {
 
   const handleClose = () => {
     setOpen(false)
-    // Pequeño delay para que la animación se complete antes de redirigir
     setTimeout(() => {
       router.push('/dashboard/feligres')
     }, 200)
@@ -182,18 +183,14 @@ export default function PaymentResponsePage() {
 
   return (
     <>
-      {/* Fondo oscuro mientras carga */}
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40" />
       
-      {/* Modal de resultado del pago */}
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
         <DialogContent className="sm:max-w-[500px] gap-0 p-0 overflow-hidden">
-          {/* Header con ícono */}
           <div className="pt-8 pb-6">
             {config.icon}
           </div>
 
-          {/* Título y descripción */}
           <DialogHeader className="space-y-3 px-6 pb-4">
             <DialogTitle className={`text-2xl font-bold text-center ${config.color}`}>
               {config.title}
@@ -203,7 +200,6 @@ export default function PaymentResponsePage() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Detalles del pago */}
           {paymentInfo && !verifying && (
             <div className="px-6 py-4 bg-muted/30">
               <div className="space-y-3">
@@ -246,7 +242,6 @@ export default function PaymentResponsePage() {
             </div>
           )}
 
-          {/* Loading state */}
           {verifying && (
             <div className="px-6 py-8 flex flex-col items-center gap-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -254,7 +249,6 @@ export default function PaymentResponsePage() {
             </div>
           )}
 
-          {/* Footer con botones */}
           {!verifying && (
             <DialogFooter className="px-6 py-4 bg-muted/20 sm:justify-between gap-2 flex-col sm:flex-row">
               <Button 
