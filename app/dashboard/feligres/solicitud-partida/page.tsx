@@ -178,6 +178,14 @@ export default function SolicitudPartidaFeligres() {
         key: String(epaycoData.publicKey).trim(),
         test: epaycoData.test === 'true' || epaycoData.test === true
       })
+      // Debug: inspeccionar el handler devuelto por ePayco
+      try {
+        console.log('ℹ️ handler ePayco:', handler)
+        // mostrar llaves internas si existen
+        console.log('ℹ️ handler keys:', Object.keys(handler || {}))
+      } catch (logErr) {
+        console.warn('No se pudo loggear handler:', logErr)
+      }
 
       // ✅ PREPARAR DATOS - Manejo robusto de campos
       const data = {
