@@ -82,6 +82,7 @@ export function middleware(request: NextRequest) {
     "/forgot-password",
     "/verify-email",
     "/reset-password",
+    "/payment/create",
     "/payment/response"
   ]
   
