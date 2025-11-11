@@ -1,7 +1,7 @@
 // app/dashboard/feligres/solicitud-partida/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ClipboardList, Calendar, History, Church, Loader2, BookOpen, Heart, Cross } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ClipboardList, Calendar, History, Church, Loader2, BookOpen, Heart, Cross, CheckCircle2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Script from "next/script"
 
@@ -66,17 +67,94 @@ declare global {
   }
 }
 
+interface ExistingRequest {
+  _id: string;
+  status: string;
+  departureType: string;
+}
+
 export default function SolicitudPartidaFeligres() {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
+  const [checkingStates, setCheckingStates] = useState<Record<string, boolean>>({})
+  const [existingRequests, setExistingRequests] = useState<Record<string, ExistingRequest | null>>({})
   const [epaycoLoaded, setEpaycoLoaded] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [selectedPartida, setSelectedPartida] = useState<{ type: string; price: number } | null>(null)
+  const [selectedPartida, setSelectedPartida] = useState<{ type: string; price: number; hasRequest: boolean; requestId?: string } | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   
   // 📱 Datos adicionales del usuario
   const [phoneNumber, setPhoneNumber] = useState("")
   const [address, setAddress] = useState("")
   
   const router = useRouter()
+
+  // 🔍 Obtener userId al cargar
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const response = await fetch('/api/user/me', {
+          credentials: 'include'
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setUserId(data._id)
+        }
+      } catch (error) {
+        console.error('Error al obtener userId:', error)
+      }
+    }
+    fetchUserId()
+  }, [])
+
+  // 🔍 Verificar solicitudes existentes para cada tipo
+  useEffect(() => {
+    if (!userId) return
+
+    const checkAllRequests = async () => {
+      for (const partida of partidaTypes) {
+        await checkExistingRequest(partida.type)
+      }
+    }
+
+    checkAllRequests()
+  }, [userId])
+
+  // 🔍 Función para verificar si existe una solicitud
+  const checkExistingRequest = async (departureType: string) => {
+    if (!userId) return
+
+    setCheckingStates(prev => ({ ...prev, [departureType]: true }))
+
+    try {
+      const response = await fetch(
+        `https://api-parroquiasagradafamilia-s6qu.onrender.com/requestdeparture/check/${userId}/${departureType}`,
+        {
+          credentials: 'include'
+        }
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        
+        if (data.exists && data.request) {
+          setExistingRequests(prev => ({
+            ...prev,
+            [departureType]: data.request
+          }))
+          console.log(`✅ Solicitud existente encontrada para ${departureType}:`, data.request)
+        } else {
+          setExistingRequests(prev => ({
+            ...prev,
+            [departureType]: null
+          }))
+        }
+      }
+    } catch (error) {
+      console.error(`Error al verificar solicitud de ${departureType}:`, error)
+    } finally {
+      setCheckingStates(prev => ({ ...prev, [departureType]: false }))
+    }
+  }
 
   // 🔥 Función para abrir el checkout de ePayco
   const openEpaycoCheckout = (epaycoData: any) => {
@@ -96,9 +174,7 @@ export default function SolicitudPartidaFeligres() {
         test: epaycoData.test === 'true'
       })
 
-      // 🔥 DATOS CORREGIDOS - Usando los nombres correctos del backend
       const data = {
-        // Información del producto
         name: epaycoData.name || epaycoData.description,
         description: epaycoData.description,
         invoice: epaycoData.invoice,
@@ -107,42 +183,28 @@ export default function SolicitudPartidaFeligres() {
         tax_base: epaycoData.taxBase || epaycoData.tax_base || '0',
         tax: epaycoData.tax || '0',
         
-        // Configuración regional
         country: epaycoData.country,
         lang: epaycoData.lang,
         
-        // URLs de respuesta (CRÍTICO - external debe ser true)
         external: epaycoData.external === 'true',
         response: epaycoData.responseUrl,
         confirmation: epaycoData.confirmationUrl,
         
-        // 🔥 INFORMACIÓN DE FACTURACIÓN - NOMBRES CORRECTOS
         name_billing: epaycoData.name_billing,
-        email_billing: epaycoData.email_billing, // ⚠️ CRÍTICO - Faltaba este campo
+        email_billing: epaycoData.email_billing,
         address_billing: epaycoData.address_billing,
         type_doc_billing: epaycoData.type_doc_billing,
         mobilephone_billing: epaycoData.mobilephone_billing,
         number_doc_billing: epaycoData.number_doc_billing,
         
-        // Extras
         extra1: epaycoData.extra1,
         extra2: epaycoData.extra2,
         extra3: epaycoData.extra3,
         
-        // Métodos deshabilitados
         methodsDisable: epaycoData.methodsDisable ? JSON.parse(epaycoData.methodsDisable) : [],
       }
 
-      console.log("✅ Datos preparados para checkout:", {
-        invoice: data.invoice,
-        amount: data.amount,
-        external: data.external,
-        name_billing: data.name_billing,
-        email_billing: data.email_billing,
-        mobilephone_billing: data.mobilephone_billing,
-        type_doc_billing: data.type_doc_billing
-      })
-
+      console.log("✅ Datos preparados para checkout:", data)
       handler.open(data)
       
     } catch (error) {
@@ -155,7 +217,6 @@ export default function SolicitudPartidaFeligres() {
 
   // 🔍 Validar formulario
   const validateForm = () => {
-    // Validar teléfono (10 dígitos)
     const phoneRegex = /^[0-9]{10}$/
     if (!phoneNumber || !phoneRegex.test(phoneNumber)) {
       toast.error("Teléfono inválido", {
@@ -164,7 +225,6 @@ export default function SolicitudPartidaFeligres() {
       return false
     }
 
-    // Validar dirección (mínimo 10 caracteres)
     if (!address || address.trim().length < 10) {
       toast.error("Dirección inválida", {
         description: "La dirección debe tener al menos 10 caracteres."
@@ -175,34 +235,111 @@ export default function SolicitudPartidaFeligres() {
     return true
   }
 
-  // 🔥 Iniciar proceso desde el modal
+  // 🔥 Abrir modal con la información correcta
   const handleOpenModal = (type: string, price: number) => {
-    setSelectedPartida({ type, price })
+    const existingRequest = existingRequests[type]
+    
+    setSelectedPartida({ 
+      type, 
+      price,
+      hasRequest: !!existingRequest,
+      requestId: existingRequest?._id
+    })
     setShowModal(true)
   }
 
-  // 🔥 Función principal: Crear solicitud + Iniciar pago
-  const handleRequestDepartureWithPayment = async () => {
+  // 💳 SOLO PAGAR (cuando ya existe solicitud)
+  const handlePaymentOnly = async () => {
+    if (!selectedPartida || !selectedPartida.requestId) return
+
+    if (!validateForm()) return
+
+    const { type: departureType, price, requestId } = selectedPartida
+
+    console.log("💳 Procesando solo pago para solicitud existente:", requestId)
+  
+    setLoadingStates((prev) => ({ ...prev, [departureType]: true }))
+    setShowModal(false)
+  
+    try {
+      // Crear el pago directamente
+      const paymentResponse = await fetch('/api/payment/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          serviceType: 'certificate',
+          serviceId: requestId,
+          amount: price,
+          description: `Pago por certificado de ${departureType.toLowerCase()}`,
+          phone: phoneNumber,
+          address: address,
+        })
+      })
+
+      if (!paymentResponse.ok) {
+        let error
+        try {
+          error = await paymentResponse.json()
+        } catch (parseError) {
+          throw new Error('Error del servidor al crear el pago.')
+        }
+        
+        const errorMsg = error.error || error.details?.message || 'Error al crear el pago'
+        
+        // Si hay un pago pendiente, mostrar tiempo restante
+        if (error.expiresIn) {
+          throw new Error(`${errorMsg}. Expira en ${error.expiresIn} minutos.`)
+        }
+        
+        throw new Error(errorMsg)
+      }
+
+      const paymentData = await paymentResponse.json()
+      console.log('✅ Pago creado:', paymentData)
+      
+      if (!paymentData.success || !paymentData.epaycoData) {
+        throw new Error('No se recibieron los datos de pago')
+      }
+
+      toast.success("Abriendo pasarela de pago...", {
+        duration: 2000,
+      })
+
+      setTimeout(() => {
+        openEpaycoCheckout(paymentData.epaycoData)
+      }, 500)
+
+    } catch (error: any) {
+      console.error("❌ Error en el proceso de pago:", error)
+      toast.error("Error al procesar el pago", {
+        description: error.message,
+        duration: 5000,
+      })
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, [departureType]: false }))
+    }
+  }
+
+  // 📝 SOLICITAR + PAGAR (cuando NO existe solicitud)
+  const handleRequestAndPayment = async () => {
     if (!selectedPartida) return
 
-    // Validar formulario
     if (!validateForm()) return
 
     const { type: departureType, price } = selectedPartida
 
-    console.log("🚀 Iniciando solicitud de partida con pago:", departureType)
+    console.log("🚀 Creando solicitud + pago:", departureType)
   
     setLoadingStates((prev) => ({ ...prev, [departureType]: true }))
-    setShowModal(false) // Cerrar modal
+    setShowModal(false)
   
     try {
-      // ══════ PASO 1: Crear la solicitud de partida ══════
+      // PASO 1: Crear la solicitud
       console.log("📝 Paso 1: Creando solicitud de partida...")
       const requestResponse = await fetch("/api/requestDeparture", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: 'include',
         body: JSON.stringify({ departureType }),
       })
@@ -223,7 +360,9 @@ export default function SolicitudPartidaFeligres() {
         }
 
         if (errorData.error?.includes("Ya tienes una solicitud pendiente")) {
-          throw new Error(`Ya tienes una solicitud pendiente de ${departureType.toLowerCase()}.`)
+          // Actualizar el estado y sugerir solo pagar
+          await checkExistingRequest(departureType)
+          throw new Error(`Ya tienes una solicitud pendiente. Usa el botón "Solo Pagar".`)
         }
         
         throw new Error(errorData.error || "Error al crear la solicitud.")
@@ -234,6 +373,12 @@ export default function SolicitudPartidaFeligres() {
 
       const requestId = requestData._id
 
+      // Actualizar el estado de solicitudes existentes
+      setExistingRequests(prev => ({
+        ...prev,
+        [departureType]: requestData
+      }))
+
       toast.success("Solicitud creada", {
         description: "Ahora serás redirigido al pago...",
         duration: 2000,
@@ -241,7 +386,7 @@ export default function SolicitudPartidaFeligres() {
 
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // ══════ PASO 2: Crear el pago ══════
+      // PASO 2: Crear el pago
       console.log("💳 Paso 2: Creando pago...")
       
       const paymentResponse = await fetch('/api/payment/create', {
@@ -263,12 +408,9 @@ export default function SolicitudPartidaFeligres() {
         try {
           error = await paymentResponse.json()
         } catch (parseError) {
-          const errorText = await paymentResponse.text()
-          console.error("❌ Respuesta no-JSON del servidor:", errorText.substring(0, 200))
-          throw new Error('Error del servidor al crear el pago. Por favor, intenta de nuevo.')
+          throw new Error('Error del servidor al crear el pago.')
         }
         
-        console.error("❌ Error al crear pago:", error)
         const errorMsg = error.error || error.details?.message || 'Error al crear el pago'
         throw new Error(errorMsg)
       }
@@ -280,7 +422,7 @@ export default function SolicitudPartidaFeligres() {
         throw new Error('No se recibieron los datos de pago')
       }
 
-      // ══════ PASO 3: Abrir checkout de ePayco ══════
+      // PASO 3: Abrir checkout
       console.log("🌐 Paso 3: Abriendo checkout de ePayco...")
       toast.success("Abriendo pasarela de pago...", {
         duration: 2000,
@@ -320,12 +462,25 @@ export default function SolicitudPartidaFeligres() {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Completar Información</DialogTitle>
+            <DialogTitle>
+              {selectedPartida?.hasRequest ? 'Proceder con el Pago' : 'Completar Información'}
+            </DialogTitle>
             <DialogDescription>
-              Por favor, completa tu información de contacto para procesar el pago.
+              {selectedPartida?.hasRequest 
+                ? 'Ya tienes una solicitud pendiente. Completa tu información para proceder con el pago.'
+                : 'Completa tu información de contacto para crear la solicitud y procesar el pago.'
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {selectedPartida?.hasRequest && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <span className="text-sm text-green-800 dark:text-green-200">
+                  Solicitud ya creada
+                </span>
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="phone">Teléfono Celular *</Label>
               <Input
@@ -361,7 +516,7 @@ export default function SolicitudPartidaFeligres() {
               Cancelar
             </Button>
             <Button
-              onClick={handleRequestDepartureWithPayment}
+              onClick={selectedPartida?.hasRequest ? handlePaymentOnly : handleRequestAndPayment}
               disabled={!phoneNumber || !address || loadingStates[selectedPartida?.type || '']}
             >
               {loadingStates[selectedPartida?.type || ''] ? (
@@ -369,8 +524,10 @@ export default function SolicitudPartidaFeligres() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Procesando...
                 </>
-              ) : (
+              ) : selectedPartida?.hasRequest ? (
                 "Continuar al Pago"
+              ) : (
+                "Solicitar y Pagar"
               )}
             </Button>
           </DialogFooter>
@@ -396,21 +553,42 @@ export default function SolicitudPartidaFeligres() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {partidaTypes.map((partida) => {
               const isLoading = loadingStates[partida.type] || false
+              const isChecking = checkingStates[partida.type] || false
+              const existingRequest = existingRequests[partida.type]
+              const hasRequest = !!existingRequest
+              
               return (
                 <Card key={partida.type} className="flex flex-col">
                   <CardHeader className="flex-row items-center gap-4">
                     <partida.icon className="h-10 w-10 text-primary" />
-                    <div>
+                    <div className="flex-1">
                       <CardTitle>{partida.title}</CardTitle>
                       <CardDescription>{partida.description}</CardDescription>
                     </div>
+                    {hasRequest && (
+                      <Badge variant="secondary" className="ml-auto">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Solicitada
+                      </Badge>
+                    )}
                   </CardHeader>
                   <CardContent className="flex-grow space-y-3">
-                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                      <p>
-                        Al solicitar, se buscará tu partida registrada en nuestro sistema y se generará una solicitud.
-                      </p>
-                    </div>
+                    {hasRequest ? (
+                      <div className="text-sm text-muted-foreground bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                        <p className="font-medium text-green-800 dark:text-green-200 mb-1">
+                          ✅ Ya tienes una solicitud pendiente
+                        </p>
+                        <p className="text-xs">
+                          Estado: <span className="font-semibold">{existingRequest.status}</span>
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                        <p>
+                          Al solicitar, se buscará tu partida registrada en nuestro sistema y se generará una solicitud.
+                        </p>
+                      </div>
+                    )}
                     
                     <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
                       <span className="text-sm font-medium">Valor:</span>
@@ -422,18 +600,26 @@ export default function SolicitudPartidaFeligres() {
                   <CardFooter>
                     <Button
                       className="w-full"
+                      variant={hasRequest ? "default" : "default"}
                       onClick={() => handleOpenModal(partida.type, partida.price)}
-                      disabled={isLoading || !epaycoLoaded}
+                      disabled={isLoading || !epaycoLoaded || isChecking}
                     >
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Procesando...
                         </>
+                      ) : isChecking ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verificando...
+                        </>
                       ) : !epaycoLoaded ? (
                         "Cargando sistema de pagos..."
+                      ) : hasRequest ? (
+                        "💳 Solo Pagar"
                       ) : (
-                        "Solicitar y Pagar"
+                        "📝 Solicitar y Pagar"
                       )}
                     </Button>
                   </CardFooter>
@@ -448,7 +634,8 @@ export default function SolicitudPartidaFeligres() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground space-y-2">
               <p>• El pago se realiza a través de ePayco de forma segura.</p>
-              <p>• Se te pedirá completar tu teléfono y dirección antes del pago.</p>
+              <p>• Los pagos pendientes expiran después de 30 minutos de inactividad.</p>
+              <p>• Si ya tienes una solicitud creada, solo necesitas realizar el pago.</p>
               <p>• Una vez confirmado el pago, tu solicitud será procesada.</p>
               <p>• Recibirás el documento en tu correo electrónico registrado.</p>
               <p>• Puedes ver el estado de tus solicitudes en la sección "Historial".</p>
