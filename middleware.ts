@@ -27,26 +27,25 @@ export function middleware(request: NextRequest) {
 
   console.log("🔐 Middleware ejecutándose en:", pathname)
 
-  // 🔹 Definir rutas de API públicas
+  // 🔹 Definir rutas de API públicas (sin necesidad de autenticación)
   const publicApiPaths = [
     "/api/login",
     "/api/logout", 
-    "/api/register", // Asume que tienes una ruta de registro
-    "/api/test-backend" // Si tienes una para pruebas o salud del backend
+    "/api/register",
+    "/api/test-backend",
+    "/api/health"
   ]
   
-  // Verificar si es una ruta de API (cualquiera que empiece por /api/)
+  // Verificar si es una ruta de API
   const isApiPath = pathname.startsWith("/api/")
 
-  // 🔹 PRIMERO: Excluir rutas de API de autenticación explícitamente públicas
-  // Si es una API pública, permitir acceso sin verificación de JWT.
+  // 🔹 PASO 1: Excluir rutas de API públicas
   if (isApiPath && publicApiPaths.some(path => pathname.startsWith(path))) {
     console.log("✅ Ruta de API pública - Acceso permitido sin verificación")
     return NextResponse.next()
   }
 
-  // 🔹 SEGUNDO: Manejo de rutas de API protegidas (el catch-all)
-  // Si es una ruta de API (y no fue excluida por ser pública), entonces requiere JWT.
+  // 🔹 PASO 2: Manejo de rutas de API protegidas
   if (isApiPath) {
     const jwt = request.cookies.get("jwt")?.value
     
@@ -55,12 +54,12 @@ export function middleware(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    // Clonar la solicitud para modificar los headers de forma segura
+    // Inyectar JWT como header Authorization
     const newRequestHeaders = new Headers(request.headers)
     newRequestHeaders.set("Authorization", `Bearer ${jwt}`)
 
-    // Devolver una nueva respuesta con la solicitud modificada
-    // Esto hace que el JWT esté disponible como un header en la ruta API
+    console.log("✅ JWT inyectado en header Authorization para API protegida")
+
     return NextResponse.next({
       request: {
         headers: newRequestHeaders,
@@ -70,17 +69,16 @@ export function middleware(request: NextRequest) {
 
   // ⬆️ FIN DE LA SECCIÓN DE MANEJO DE APIs
 
-  // 🔹 Obtener AMBAS cookies (para lógica de redirección de páginas)
+  // 🔹 Obtener cookies para lógica de páginas
   const dbRole = request.cookies.get("role")?.value?.toLowerCase()
   const jwt = request.cookies.get("jwt")?.value
 
-  console.log("🍪 Role cookie (para páginas):", dbRole || "❌ ausente")
-  console.log("🔑 JWT cookie (para páginas):", jwt ? "✅ presente" : "❌ ausente")
+  console.log("🍪 Role cookie:", dbRole || "❌ ausente")
+  console.log("🔑 JWT cookie:", jwt ? "✅ presente" : "❌ ausente")
 
-  // 🔹 Usuario está autenticado si tiene AMBAS cookies (para páginas)
   const isAuthenticated = !!(dbRole && jwt)
 
-  // 🔹 Rutas públicas (páginas, no APIs)
+  // 🔹 Rutas públicas (páginas)
   const publicPaths = [
     "/",
     "/login",
@@ -96,9 +94,8 @@ export function middleware(request: NextRequest) {
     pathname === path || pathname.startsWith(`${path}/`)
   )
 
-  // 🔹 CASO 1: Usuario autenticado intenta acceder a rutas públicas (login, register)
-  // → Redirigir a su dashboard
-  if (isPublicPath && isAuthenticated && pathname !== "/") {
+  // 🔹 CASO 1: Usuario autenticado en rutas públicas → Redirigir a dashboard
+  if (isPublicPath && isAuthenticated && pathname !== "/" && pathname !== "/payment/response") {
     console.log("✅ Usuario autenticado en ruta pública, redirigiendo a dashboard...")
     const mappedRole = roleMapping[dbRole] || dbRole
     const url = request.nextUrl.clone()
@@ -106,33 +103,27 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // 🔹 CASO 2: Ruta pública sin autenticación
-  // → Permitir acceso
+  // 🔹 CASO 2: Ruta pública → Permitir acceso
   if (isPublicPath) {
     console.log("🌐 Ruta pública - Acceso permitido")
     return NextResponse.next()
   }
 
-  // 🔹 CASO 3: Ruta protegida SIN autenticación
-  // → Redirigir a login
+  // 🔹 CASO 3: Ruta protegida sin autenticación → Redirigir a login
   if (!isAuthenticated) {
     console.log("❌ No autenticado, redirigiendo a login")
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     url.searchParams.set("redirect", pathname)
     
-    // Crear respuesta con redirección
     const response = NextResponse.redirect(url)
-    
-    // Limpiar cookies por seguridad
     response.cookies.delete("role")
     response.cookies.delete("jwt")
     
     return response
   }
 
-  // 🔹 CASO 4: Usuario autenticado en ruta protegida
-  // → Verificar permisos de rol
+  // 🔹 CASO 4: Usuario autenticado en ruta protegida → Verificar permisos
   const mappedRole = roleMapping[dbRole] || dbRole
   console.log("🔄 Mapped role:", dbRole, "→", mappedRole)
 
@@ -142,7 +133,6 @@ export function middleware(request: NextRequest) {
   if (requiredRoles && !requiredRoles.includes(mappedRole)) {
     console.log("⛔ Acceso denegado. Redirigiendo al dashboard correcto")
     
-    // Redirigir al dashboard apropiado según el rol
     const url = request.nextUrl.clone()
     url.pathname = `/dashboard/${mappedRole}`
     return NextResponse.redirect(url)
@@ -159,7 +149,7 @@ export const config = {
      * - _next/static (archivos estáticos)
      * - _next/image (optimización de imágenes)
      * - favicon.ico
-     * - archivos públicos (png, jpg, svg, etc.)
+     * - archivos públicos
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp)$).*)",
   ],
