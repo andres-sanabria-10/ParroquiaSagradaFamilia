@@ -80,48 +80,13 @@ export default function SolicitudPartidaFeligres() {
   const [epaycoLoaded, setEpaycoLoaded] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [selectedPartida, setSelectedPartida] = useState<{ type: string; price: number; hasRequest: boolean; requestId?: string } | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
-  
-  // 📱 Datos adicionales del usuario
   const [phoneNumber, setPhoneNumber] = useState("")
   const [address, setAddress] = useState("")
   
   const router = useRouter()
 
-  // 🔍 Obtener userId al cargar
+  // 🔍 Verificar solicitudes existentes al cargar
   useEffect(() => {
-    const fetchUserId = async () => {
-      try {
-        const response = await fetch('/api/users/me', {
-          credentials: 'include'
-        })
-        
-        if (!response.ok) {
-          console.error('Error al obtener usuario:', response.status)
-          if (response.status === 401) {
-            toast.error("Sesión expirada", {
-              description: "Por favor, inicia sesión de nuevo."
-            })
-            router.push('/login')
-          }
-          return
-        }
-        
-        const data = await response.json()
-        console.log('✅ Usuario obtenido:', data._id)
-        setUserId(data._id)
-      } catch (error) {
-        console.error('Error al obtener userId:', error)
-        toast.error('Error al cargar información del usuario')
-      }
-    }
-    fetchUserId()
-  }, [router])
-
-  // 🔍 Verificar solicitudes existentes para cada tipo
-  useEffect(() => {
-    if (!userId) return
-
     const checkAllRequests = async () => {
       for (const partida of partidaTypes) {
         await checkExistingRequest(partida.type)
@@ -129,25 +94,30 @@ export default function SolicitudPartidaFeligres() {
     }
 
     checkAllRequests()
-  }, [userId])
+  }, [])
 
   // 🔍 Función para verificar si existe una solicitud
+  // ✅ CORREGIDO: Ya NO necesita userId porque viene del JWT
   const checkExistingRequest = async (departureType: string) => {
-    if (!userId) return
-
     setCheckingStates(prev => ({ ...prev, [departureType]: true }))
 
     try {
       console.log(`🔍 Verificando solicitud existente para ${departureType}...`)
       
+      // ✅ RUTA CORREGIDA: Solo departureType, el userId viene del JWT
       const response = await fetch(
-        `/api/requestdeparture/check/${userId}/${departureType}`,
+        `/api/requestdeparture/check/${departureType}`,
         {
-          credentials: 'include'
+          credentials: 'include' // Envía las cookies (JWT)
         }
       )
 
       if (!response.ok) {
+        if (response.status === 401) {
+          console.error('❌ No autorizado - redirigiendo a login')
+          router.push('/login')
+          return
+        }
         console.error(`❌ Error al verificar solicitud (${response.status}):`, await response.text())
         return
       }
@@ -308,7 +278,6 @@ export default function SolicitudPartidaFeligres() {
         
         const errorMsg = error.error || error.details?.message || 'Error al crear el pago'
         
-        // Si hay un pago pendiente, mostrar tiempo restante
         if (error.expiresIn) {
           throw new Error(`${errorMsg}. Expira en ${error.expiresIn} minutos.`)
         }
@@ -381,7 +350,6 @@ export default function SolicitudPartidaFeligres() {
         }
 
         if (errorData.error?.includes("Ya tienes una solicitud pendiente")) {
-          // Actualizar el estado y sugerir solo pagar
           await checkExistingRequest(departureType)
           throw new Error(`Ya tienes una solicitud pendiente. Usa el botón "Solo Pagar".`)
         }
@@ -569,27 +537,6 @@ export default function SolicitudPartidaFeligres() {
                 ⏳ Cargando sistema de pagos...
               </p>
             </div>
-          )}
-
-          {/* 🐛 Panel de Debug (temporal - remover en producción) */}
-          {process.env.NODE_ENV === 'development' && (
-            <Card className="mb-4 border-blue-200 bg-blue-50/50 dark:bg-blue-900/10">
-              <CardHeader>
-                <CardTitle className="text-sm">🐛 Panel de Debug</CardTitle>
-              </CardHeader>
-              <CardContent className="text-xs space-y-2">
-                <p><strong>User ID:</strong> {userId || '❌ No cargado'}</p>
-                <p><strong>ePayco cargado:</strong> {epaycoLoaded ? '✅' : '❌'}</p>
-                <p><strong>Solicitudes verificadas:</strong></p>
-                <ul className="ml-4 space-y-1">
-                  {partidaTypes.map(p => (
-                    <li key={p.type}>
-                      {p.type}: {checkingStates[p.type] ? '⏳ Verificando...' : existingRequests[p.type] ? `✅ ID: ${existingRequests[p.type]?._id}` : '❌ Sin solicitud'}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
