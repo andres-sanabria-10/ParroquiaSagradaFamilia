@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
       path: "/",
       maxAge: 0,
       httpOnly: true,
-      secure: true, // Siempre true en producción (Render usa HTTPS)
-      sameSite: 'none'
+      secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax'
     })
 
     // Cookie del frontend (role) - debe coincidir EXACTAMENTE con login
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       maxAge: 0,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: 'none'
+      sameSite: 'lax'
     })
     
     res.cookies.set("role", "", { 
