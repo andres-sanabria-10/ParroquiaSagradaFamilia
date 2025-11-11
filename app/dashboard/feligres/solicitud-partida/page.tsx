@@ -244,8 +244,30 @@ export default function SolicitudPartidaFeligres() {
         console.warn('Error registrando callbacks del handler:', cbErr)
       }
 
-      console.log("🚀 Llamando handler.open()...")
-      handler.open(data)
+      console.log("🚀 Llamando handler.open/openNew()...")
+      try {
+        if (typeof handler.openNew === 'function') {
+          console.log('ℹ️ Usando handler.openNew()')
+          // openNew puede aceptar un objeto ligeramente distinto, pero probamos con el mismo data
+          handler.openNew(data)
+        } else if (typeof handler.open === 'function') {
+          console.log('ℹ️ openNew no disponible, usando handler.open()')
+          handler.open(data)
+        } else {
+          console.error('❌ handler no tiene métodos open/openNew')
+        }
+      } catch (openErr: any) {
+        console.error('❌ Error al invocar open/openNew:', openErr)
+        // Intentar fallback invertido si falló openNew
+        try {
+          if (typeof handler.open === 'function') {
+            console.log('ℹ️ Intentando fallback handler.open() tras fallo de openNew')
+            handler.open(data)
+          }
+        } catch (fallbackErr) {
+          console.error('❌ Fallback también falló:', fallbackErr)
+        }
+      }
       
     } catch (error: any) {
       console.error('❌ Error al abrir checkout de ePayco:', error)
