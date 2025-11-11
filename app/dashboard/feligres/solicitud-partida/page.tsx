@@ -258,7 +258,7 @@ export default function SolicitudPartidaFeligres() {
   
     try {
       // Crear el pago directamente
-      const paymentResponse = await fetch('/payment/create', {
+      const paymentResponse = await fetch('/api/payment/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -382,7 +382,7 @@ export default function SolicitudPartidaFeligres() {
       // PASO 2: Crear el pago
       console.log("💳 Paso 2: Creando pago...")
       
-      const paymentResponse = await fetch('/payment/create', {
+      const paymentResponse = await fetch('/api/payment/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
