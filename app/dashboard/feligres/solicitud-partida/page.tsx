@@ -149,7 +149,7 @@ export default function SolicitudPartidaFeligres() {
 
   // 🔥 Función para abrir el checkout de ePayco
   const openEpaycoCheckout = (epaycoData: any) => {
-    console.log("💳 Abriendo checkout de ePayco con datos:", epaycoData)
+    console.log("💳 Abriendo checkout de ePayco con datos COMPLETOS:", JSON.stringify(epaycoData, null, 2))
 
     if (typeof window.ePayco === 'undefined') {
       console.error('❌ El script de ePayco no está cargado')
@@ -160,6 +160,9 @@ export default function SolicitudPartidaFeligres() {
     }
 
     try {
+      console.log("🔑 Configurando handler con publicKey:", epaycoData.publicKey)
+      console.log("🧪 Modo test:", epaycoData.test)
+
       const handler = window.ePayco.checkout.configure({
         key: epaycoData.publicKey,
         test: epaycoData.test === 'true'
@@ -195,7 +198,8 @@ export default function SolicitudPartidaFeligres() {
         methodsDisable: epaycoData.methodsDisable ? JSON.parse(epaycoData.methodsDisable) : [],
       }
 
-      console.log("✅ Datos preparados para checkout:", data)
+      console.log("✅ Datos preparados para checkout:", JSON.stringify(data, null, 2))
+      console.log("🚀 Abriendo handler.open()...")
       handler.open(data)
       
     } catch (error) {
