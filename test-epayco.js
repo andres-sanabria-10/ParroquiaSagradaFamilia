@@ -37,7 +37,7 @@ const envVars = {
   'EPAYCO_P_PUBLIC_KEY': process.env.EPAYCO_P_PUBLIC_KEY,
   'EPAYCO_P_KEY': process.env.EPAYCO_P_KEY,
   'EPAYCO_P_TESTING': process.env.EPAYCO_P_TESTING,
-  'EPAYCO_PUBLIC_KEY': process.env.EPAYCO_PUBLIC_KEY,
+  'EPAYCO_PUBLIC_KEY': process.env.EPAYCO_P_PUBLIC_KEY,
   'FRONTEND_URL': process.env.FRONTEND_URL,
   'BACKEND_URL': process.env.BACKEND_URL,
 };

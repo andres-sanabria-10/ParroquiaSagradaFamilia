@@ -147,10 +147,11 @@ export default function SolicitudPartidaFeligres() {
     }
   }
 
-  // 🔥 Función para abrir el checkout de ePayco
+  // 🔥 Función para abrir el checkout de ePayco - VERSIÓN MEJORADA
   const openEpaycoCheckout = (epaycoData: any) => {
-    console.log("💳 Abriendo checkout de ePayco con datos COMPLETOS:", JSON.stringify(epaycoData, null, 2))
+    console.log("💳 Abriendo checkout de ePayco con datos:", JSON.stringify(epaycoData, null, 2))
 
+    // ✅ VALIDACIÓN 1: Script cargado
     if (typeof window.ePayco === 'undefined') {
       console.error('❌ El script de ePayco no está cargado')
       toast.error('Error al cargar el sistema de pagos', {
@@ -159,53 +160,78 @@ export default function SolicitudPartidaFeligres() {
       return
     }
 
+    // ✅ VALIDACIÓN 2: PublicKey no vacía
+    if (!epaycoData.publicKey || String(epaycoData.publicKey).trim() === '') {
+      console.error('❌ Public Key vacía:', epaycoData.publicKey)
+      toast.error('Error de configuración', {
+        description: 'La clave de pago no fue recibida correctamente.'
+      })
+      return
+    }
+
     try {
-      console.log("🔑 Configurando handler con publicKey:", epaycoData.publicKey)
+      console.log("🔑 PublicKey:", epaycoData.publicKey.substring(0, 10) + "...")
       console.log("🧪 Modo test:", epaycoData.test)
 
+      // ✅ CONFIGURAR CON TRIM EN LA CLAVE
       const handler = window.ePayco.checkout.configure({
-        key: epaycoData.publicKey,
-        test: epaycoData.test === 'true'
+        key: String(epaycoData.publicKey).trim(),
+        test: epaycoData.test === 'true' || epaycoData.test === true
       })
 
+      // ✅ PREPARAR DATOS - Manejo robusto de campos
       const data = {
-        name: epaycoData.name || epaycoData.description,
-        description: epaycoData.description,
+        // Parámetros de descripción
+        name: epaycoData.name || epaycoData.description || 'Pago de servicio',
+        description: epaycoData.description || 'Pago por certificado de partida',
+        
+        // Parámetros de facturación
         invoice: epaycoData.invoice,
-        currency: epaycoData.currency,
-        amount: epaycoData.amount,
-        tax_base: epaycoData.taxBase || epaycoData.tax_base || '0',
-        tax: epaycoData.tax || '0',
+        currency: epaycoData.currency || 'cop',
+        amount: String(epaycoData.amount).replace(/[^\d]/g, ''), // Solo números
+        tax_base: String(epaycoData.taxBase || epaycoData.tax_base || '0'),
+        tax: String(epaycoData.tax || '0'),
         
-        country: epaycoData.country,
-        lang: epaycoData.lang,
+        // Ubicación y lenguaje - MINÚSCULAS
+        country: String(epaycoData.country || 'co').toLowerCase(),
+        lang: String(epaycoData.lang || 'es').toLowerCase(),
         
-        external: epaycoData.external === 'true',
-        response: epaycoData.responseUrl,
-        confirmation: epaycoData.confirmationUrl,
+        // URLs de respuesta - CRÍTICO: pueden venir como response/confirmation o responseUrl/confirmationUrl
+        external: String(epaycoData.external) === 'true',
+        response: epaycoData.responseUrl || epaycoData.response,
+        confirmation: epaycoData.confirmationUrl || epaycoData.confirmation,
         
-        name_billing: epaycoData.name_billing,
-        email_billing: epaycoData.email_billing,
-        address_billing: epaycoData.address_billing,
-        type_doc_billing: epaycoData.type_doc_billing,
-        mobilephone_billing: epaycoData.mobilephone_billing,
-        number_doc_billing: epaycoData.number_doc_billing,
+        // Datos del cliente - LIMPIEZA
+        name_billing: String(epaycoData.name_billing || '').trim(),
+        email_billing: String(epaycoData.email_billing || '').trim(),
+        address_billing: String(epaycoData.address_billing || '').substring(0, 100),
+        type_doc_billing: epaycoData.type_doc_billing || 'CC',
+        mobilephone_billing: String(epaycoData.mobilephone_billing || '').replace(/[^\d]/g, ''),
+        number_doc_billing: String(epaycoData.number_doc_billing || '').replace(/[^\d]/g, ''),
         
-        extra1: epaycoData.extra1,
-        extra2: epaycoData.extra2,
-        extra3: epaycoData.extra3,
+        // Datos adicionales
+        extra1: epaycoData.extra1 || '',
+        extra2: epaycoData.extra2 || '',
+        extra3: epaycoData.extra3 || '',
         
-        methodsDisable: epaycoData.methodsDisable ? JSON.parse(epaycoData.methodsDisable) : [],
+        // Métodos deshabilitados
+        methodsDisable: Array.isArray(epaycoData.methodsDisable) 
+          ? epaycoData.methodsDisable 
+          : (epaycoData.methodsDisable && typeof epaycoData.methodsDisable === 'string'
+            ? JSON.parse(epaycoData.methodsDisable) 
+            : []),
       }
 
-      console.log("✅ Datos preparados para checkout:", JSON.stringify(data, null, 2))
-      console.log("🚀 Abriendo handler.open()...")
+      console.log("✅ Datos preparados para ePayco:", JSON.stringify(data, null, 2))
+      console.log("🚀 Llamando handler.open()...")
+      
       handler.open(data)
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error al abrir checkout de ePayco:', error)
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'Sin stack')
       toast.error('Error al abrir la pasarela de pago', {
-        description: 'Por favor, intenta de nuevo.'
+        description: error instanceof Error ? error.message : 'Error desconocido'
       })
     }
   }
