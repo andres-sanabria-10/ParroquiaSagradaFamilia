@@ -277,7 +277,7 @@ export default function SolicitudMisasFeligres() {
         tax: '0',
         country: 'co',
         lang: 'es',
-        external: 'true',
+        external: 'false',
         response: epaycoData.responseUrl || epaycoData.response,
         confirmation: epaycoData.confirmationUrl || epaycoData.confirmation,
         name_billing: String(epaycoData.name_billing || '').trim(),
