@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
   ToggleGroup,
@@ -20,16 +21,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { ClipboardList, Calendar as CalendarIcon, Church,History, Loader2 } from "lucide-react"
+import { ClipboardList, Calendar as CalendarIcon, Church, History, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns"
+import Script from "next/script"
+import { useRouter } from "next/navigation"
 
 // --- Sidebar ---
 const sidebarItems = [
   {
-    title: "Inicio",  // 👈 NUEVO
+    title: "Inicio",
     href: "/dashboard/feligres",
-    icon: Church,  // o usa Home de lucide-react
+    icon: Church,
   },
   {
     title: "Solicitud de Partida",
@@ -48,16 +51,25 @@ const sidebarItems = [
   },
 ]
 
-// --- Constantes y Tipos ---
+// --- Constantes ---
 const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
-const PROXY_URL = "/api/requestMass" // 👈 Usar API Routes de Next.js como proxy
+const MASS_PRICE = 50000 // Precio de la misa en COP
 
 interface TimeSlot {
   time: string
   available: boolean
 }
 
+declare global {
+  interface Window {
+    ePayco: any;
+  }
+}
+
 export default function SolicitudMisasFeligres() {
+  const router = useRouter()
+  
+  // Estados del calendario y horarios
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [availableDays, setAvailableDays] = useState<Date[]>([])
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
@@ -65,25 +77,31 @@ export default function SolicitudMisasFeligres() {
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
   const [selectedTime, setSelectedTime] = useState<string>("")
   const [intention, setIntention] = useState("")
+  
+  // Estados del proceso de pago
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [address, setAddress] = useState("")
+  const [createdRequestId, setCreatedRequestId] = useState<string | null>(null)
+  const [epaycoLoaded, setEpaycoLoaded] = useState(false)
 
   // Formateador de fecha a YYYY-MM-DD
   const formatDateForAPI = (date: Date): string => {
     return format(date, "yyyy-MM-dd")
   }
 
-  // --- 1. Lógica para cargar los días disponibles del mes ---
+  // --- 1. Cargar días disponibles del mes ---
   const fetchAvailableDays = async (month: Date) => {
     const start = startOfMonth(month)
     const end = endOfMonth(month)
     const daysInMonth = eachDayOfInterval({ start, end })
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
     const promises = daysInMonth
-      .filter(day => day >= today) 
+      .filter(day => day >= today)
       .map(day => {
         const dateString = formatDateForAPI(day)
         return fetch(`${API_URL}/massSchedule/time-slots?date=${dateString}`, {
@@ -92,13 +110,13 @@ export default function SolicitudMisasFeligres() {
           .then(res => res.json())
           .then(data => {
             if (data.timeSlots && data.timeSlots.some((slot: TimeSlot) => slot.available)) {
-              return day 
+              return day
             }
             return null
           })
-          .catch(() => null) 
+          .catch(() => null)
       })
-    
+
     const results = (await Promise.all(promises)).filter(d => d !== null) as Date[]
     setAvailableDays(results)
   }
@@ -107,24 +125,7 @@ export default function SolicitudMisasFeligres() {
     fetchAvailableDays(currentMonth)
   }, [currentMonth])
 
-  // 🔍 Debug: Verificar cookies y hacer test de autenticación
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Test simple para verificar si las cookies se envían
-        const testRes = await fetch(`${API_URL}/massSchedule/time-slots?date=${format(new Date(), 'yyyy-MM-dd')}`, {
-          credentials: 'include',
-        })
-        console.log('🔐 Test de autenticación:', testRes.status)
-        console.log('🍪 Cookies del documento (solo no-httpOnly):', document.cookie)
-      } catch (error) {
-        console.error('❌ Error en test de autenticación:', error)
-      }
-    }
-    checkAuth()
-  }, [])
-
-  // --- 2. Lógica para cargar las horas de un día específico ---
+  // --- 2. Cargar horas de un día específico ---
   const handleDateSelect = async (date: Date | undefined) => {
     if (!date) return
 
@@ -133,14 +134,14 @@ export default function SolicitudMisasFeligres() {
     setAvailableTimes([])
     setSelectedTime("")
     setIntention("")
-    
+
     try {
       const dateString = formatDateForAPI(date)
       const res = await fetch(`${API_URL}/massSchedule/time-slots?date=${dateString}`, {
         credentials: 'include',
       })
       if (!res.ok) throw new Error("No se pudieron cargar los horarios.")
-      
+
       const data = await res.json()
       if (data.timeSlots && data.timeSlots.length > 0) {
         const availableSlots = data.timeSlots
@@ -157,8 +158,28 @@ export default function SolicitudMisasFeligres() {
     }
   }
 
-  // --- 3. Lógica para enviar la solicitud de misa ---
-  const handleSubmit = async () => {
+  // --- 3. Validar formulario ---
+  const validateForm = () => {
+    const phoneRegex = /^[0-9]{10}$/
+    if (!phoneNumber || !phoneRegex.test(phoneNumber)) {
+      toast.error("Teléfono inválido", {
+        description: "El teléfono debe tener 10 dígitos numéricos."
+      })
+      return false
+    }
+
+    if (!address || address.trim().length < 10) {
+      toast.error("Dirección inválida", {
+        description: "La dirección debe tener al menos 10 caracteres."
+      })
+      return false
+    }
+
+    return true
+  }
+
+  // --- 4. Crear solicitud de misa (sin pago aún) ---
+  const handleCreateRequest = async () => {
     if (!selectedDate || !selectedTime || !intention) {
       toast.error("Datos incompletos", {
         description: "Debes seleccionar una fecha, una hora y escribir tu intención.",
@@ -167,21 +188,13 @@ export default function SolicitudMisasFeligres() {
     }
 
     setIsSubmitting(true)
-    
-    try {
-      console.log('🚀 Enviando solicitud de misa...')
-      console.log('📍 URL:', `${API_URL}/requestMass`)
-      console.log('📦 Datos:', {
-        date: formatDateForAPI(selectedDate),
-        time: selectedTime,
-        intention: intention
-      })
 
-      const res = await fetch(PROXY_URL, {
+    try {
+      console.log('🚀 Creando solicitud de misa...')
+
+      const res = await fetch('/api/requestMass', {
         method: 'POST',
-        headers: { 
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: 'include',
         body: JSON.stringify({
           date: formatDateForAPI(selectedDate),
@@ -191,49 +204,182 @@ export default function SolicitudMisasFeligres() {
       })
 
       console.log('📡 Status de respuesta:', res.status)
-      console.log('📋 Headers de respuesta:', [...res.headers.entries()])
 
-      // Manejar error 401 específicamente
       if (res.status === 401) {
-        console.error('❌ Error 401: No autorizado')
         toast.error("Sesión expirada", {
-          description: "Tu sesión ha expirado. Por favor inicia sesión nuevamente.",
-          duration: 5000,
+          description: "Por favor inicia sesión nuevamente.",
         })
-        
-        // Opcional: redirigir al login después de 2 segundos
-        setTimeout(() => {
-          window.location.href = '/login'
-        }, 2000)
+        setTimeout(() => router.push('/login'), 2000)
         return
       }
 
       if (!res.ok) {
         const err = await res.json()
-        console.error('❌ Error del servidor:', err)
-        throw new Error(err.error || err.message || "No se pudo enviar la solicitud")
+        throw new Error(err.error || "No se pudo crear la solicitud")
       }
-      
+
       const data = await res.json()
-      console.log('✅ Solicitud exitosa:', data)
-      
-      toast.success("¡Solicitud enviada!", {
-        description: "Tu solicitud de misa ha sido enviada correctamente."
+      console.log('✅ Solicitud creada:', data)
+
+      // Guardar el ID de la solicitud
+      setCreatedRequestId(data._id)
+
+      toast.success("Solicitud creada", {
+        description: "Ahora completa tus datos para el pago.",
       })
-      
-      setShowSuccessModal(true)
-      
-      // Resetear el formulario
+
+      // Abrir modal para pedir datos de pago
+      setShowPaymentModal(true)
+
+    } catch (error: any) {
+      console.error('❌ Error al crear solicitud:', error)
+      toast.error("Error al crear solicitud", {
+        description: error.message
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // --- 5. Función para abrir checkout de ePayco ---
+  const openEpaycoCheckout = (epaycoData: any) => {
+    console.log("💳 Iniciando apertura de checkout ePayco...")
+
+    if (typeof window.ePayco === 'undefined') {
+      console.error('❌ El script de ePayco no está cargado')
+      toast.error('Error al cargar el sistema de pagos', {
+        description: 'Por favor, recarga la página e intenta de nuevo.'
+      })
+      return
+    }
+
+    if (!epaycoData.publicKey || String(epaycoData.publicKey).trim() === '') {
+      console.error('❌ Public Key vacía')
+      toast.error('Error de configuración', {
+        description: 'La clave pública de ePayco no fue recibida.'
+      })
+      return
+    }
+
+    try {
+      const handler = window.ePayco.checkout.configure({
+        key: String(epaycoData.publicKey).trim(),
+        test: epaycoData.test === 'true' || epaycoData.test === true
+      })
+
+      const checkoutData = {
+        name: epaycoData.name || 'Pago de misa',
+        description: epaycoData.description || 'Pago por solicitud de misa',
+        invoice: epaycoData.invoice,
+        currency: 'cop',
+        amount: String(epaycoData.amount).replace(/[^\d]/g, ''),
+        tax_base: '0',
+        tax: '0',
+        country: 'co',
+        lang: 'es',
+        external: 'true',
+        response: epaycoData.responseUrl || epaycoData.response,
+        confirmation: epaycoData.confirmationUrl || epaycoData.confirmation,
+        name_billing: String(epaycoData.name_billing || '').trim(),
+        email_billing: String(epaycoData.email_billing || '').trim(),
+        address_billing: String(epaycoData.address_billing || '').trim(),
+        type_doc_billing: epaycoData.type_doc_billing || 'CC',
+        mobilephone_billing: String(epaycoData.mobilephone_billing || '').replace(/[^\d]/g, ''),
+        number_doc_billing: String(epaycoData.number_doc_billing || '').replace(/[^\d]/g, ''),
+        extra1: epaycoData.extra1 || '',
+        extra2: epaycoData.extra2 || '',
+        extra3: epaycoData.extra3 || '',
+      }
+
+      console.log("✅ Datos preparados para checkout:", JSON.stringify(checkoutData, null, 2))
+
+      if (typeof handler.open !== 'function') {
+        console.error('❌ handler.open() no está disponible')
+        throw new Error('El método open() no está disponible')
+      }
+
+      handler.open(checkoutData)
+      console.log('✅ Checkout abierto exitosamente')
+
+    } catch (error: any) {
+      console.error('❌ Error al abrir checkout:', error)
+      toast.error('Error al abrir la pasarela de pago', {
+        description: error.message || 'Error desconocido',
+        duration: 5000
+      })
+    }
+  }
+
+  // --- 6. Procesar pago ---
+  const handleProcessPayment = async () => {
+    if (!validateForm()) return
+    if (!createdRequestId) {
+      toast.error("Error", { description: "No se encontró la solicitud creada." })
+      return
+    }
+
+    setIsSubmitting(true)
+    setShowPaymentModal(false)
+
+    try {
+      console.log('💳 Creando pago para solicitud:', createdRequestId)
+
+      const paymentResponse = await fetch('/api/payment/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          serviceType: 'mass',
+          serviceId: createdRequestId,
+          amount: MASS_PRICE,
+          description: `Pago por solicitud de misa - ${format(selectedDate!, 'dd/MM/yyyy')} ${selectedTime}`,
+          phone: phoneNumber,
+          address: address,
+        })
+      })
+
+      if (!paymentResponse.ok) {
+        let error
+        try {
+          error = await paymentResponse.json()
+        } catch {
+          throw new Error('Error del servidor al crear el pago.')
+        }
+
+        const errorMsg = error.error || error.details?.message || 'Error al crear el pago'
+        throw new Error(errorMsg)
+      }
+
+      const paymentData = await paymentResponse.json()
+      console.log('✅ Pago creado:', paymentData)
+
+      if (!paymentData.success || !paymentData.epaycoData) {
+        throw new Error('No se recibieron los datos de pago')
+      }
+
+      toast.success("Abriendo pasarela de pago...", {
+        duration: 2000,
+      })
+
+      setTimeout(() => {
+        openEpaycoCheckout(paymentData.epaycoData)
+      }, 500)
+
+      // Resetear formulario
       setSelectedDate(undefined)
       setAvailableTimes([])
       setSelectedTime("")
       setIntention("")
-      fetchAvailableDays(currentMonth) 
+      setPhoneNumber("")
+      setAddress("")
+      setCreatedRequestId(null)
+      fetchAvailableDays(currentMonth)
 
     } catch (error: any) {
-      console.error('❌ Error general:', error)
-      toast.error("Error al enviar", { 
-        description: error.message || "Ocurrió un error inesperado"
+      console.error("❌ Error en el proceso de pago:", error)
+      toast.error("Error al procesar el pago", {
+        description: error.message,
+        duration: 5000,
       })
     } finally {
       setIsSubmitting(false)
@@ -242,14 +388,35 @@ export default function SolicitudMisasFeligres() {
 
   return (
     <>
+      <Script
+        src="https://checkout.epayco.co/checkout.js"
+        strategy="afterInteractive"
+        onLoad={() => {
+          console.log("✅ Script de ePayco cargado")
+          setEpaycoLoaded(true)
+        }}
+        onError={(e) => {
+          console.error("❌ Error al cargar script de ePayco:", e)
+          toast.error("Error al cargar el sistema de pagos")
+        }}
+      />
+
       <div className="flex h-screen bg-background">
         <Sidebar items={sidebarItems} userRole="feligrés" />
         <main className="flex-1 overflow-y-auto">
           <div className="p-6">
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-foreground">Solicitud de Misas</h1>
-              <p className="text-muted-foreground">Solicita una misa para tus intenciones.</p>
+              <p className="text-muted-foreground">Solicita una misa para tus intenciones y procede con el pago.</p>
             </div>
+
+            {!epaycoLoaded && (
+              <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  ⏳ Cargando sistema de pagos...
+                </p>
+              </div>
+            )}
 
             <Card>
               <CardHeader>
@@ -258,11 +425,11 @@ export default function SolicitudMisasFeligres() {
               </CardHeader>
 
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
-                
+
                 {/* --- COLUMNA 1: CALENDARIO --- */}
                 <div className="space-y-4">
                   <Label className="text-lg font-medium text-center block">Paso 1: Selecciona la fecha</Label>
-                  
+
                   <div className="flex justify-center items-center pt-8">
                     <div className="scale-100">
                       <Calendar
@@ -285,7 +452,7 @@ export default function SolicitudMisasFeligres() {
                   </div>
                 </div>
 
-                {/* --- COLUMNA 2: PASO 2 y 3 --- */}
+                {/* --- COLUMNA 2: HORARIOS E INTENCIÓN --- */}
                 <div className="space-y-6">
 
                   {/* --- PASO 2: HORARIOS --- */}
@@ -331,8 +498,28 @@ export default function SolicitudMisasFeligres() {
                         onChange={(e) => setIntention(e.target.value)}
                         rows={4}
                       />
-                      <Button onClick={handleSubmit} disabled={isSubmitting || !intention.trim()} className="w-full">
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Enviar Solicitud"}
+
+                      {/* Mostrar precio */}
+                      <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
+                        <span className="text-sm font-medium">Valor de la misa:</span>
+                        <span className="text-lg font-bold text-primary">
+                          ${MASS_PRICE.toLocaleString('es-CO')} COP
+                        </span>
+                      </div>
+
+                      <Button
+                        onClick={handleCreateRequest}
+                        disabled={isSubmitting || !intention.trim() || !epaycoLoaded}
+                        className="w-full"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Procesando...
+                          </>
+                        ) : (
+                          "Continuar al Pago"
+                        )}
                       </Button>
                     </div>
                   )}
@@ -343,28 +530,62 @@ export default function SolicitudMisasFeligres() {
         </main>
       </div>
 
-      {/* --- MODAL DE ÉXITO (con QR) --- */}
-      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
-        <DialogContent>
+      {/* --- MODAL PARA DATOS DE PAGO --- */}
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-2xl text-center">¡Solicitud Enviada!</DialogTitle>
-            <DialogDescription className="text-center text-base">
-              Tu solicitud ha sido recibida.
+            <DialogTitle>Completar Información de Pago</DialogTitle>
+            <DialogDescription>
+              Por favor completa tus datos para proceder con el pago de la misa.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 text-center">
-            <p className="text-muted-foreground mb-4">
-              Para confirmar y aprobar tu solicitud, por favor comunícate a nuestro WhatsApp y realiza el pago respectivo.
-            </p>
-            <img 
-              src="/qr.png" 
-              alt="Código QR de pago" 
-              className="w-32 h-32 mx-auto rounded-md border p-1"
-            />
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Teléfono Celular *</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="3001234567"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                maxLength={10}
+              />
+              <p className="text-xs text-muted-foreground">
+                10 dígitos sin espacios ni guiones
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="address">Dirección Completa *</Label>
+              <Input
+                id="address"
+                placeholder="Carrera 5 # 10-20, Sogamoso, Boyacá"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Incluye ciudad y departamento
+              </p>
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowSuccessModal(false)} className="w-full">
-              Entendido
+            <Button
+              variant="outline"
+              onClick={() => setShowPaymentModal(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleProcessPayment}
+              disabled={!phoneNumber || !address || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                "Proceder al Pago"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
