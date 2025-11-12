@@ -195,9 +195,8 @@ export default function SolicitudPartidaFeligres() {
         country: 'co',
         lang: 'es',
 
-  // Para mostrar el checkout en un modal/iframe usar external = 'false' (o boolean false).
-  // Si se deja 'true' el comportamiento suele ser REDIRECCIÓN a la página de ePayco.
-  external: 'false',
+ 
+  external: 'true',
         
         // URLs de respuesta
         response: epaycoData.responseUrl || epaycoData.response,
