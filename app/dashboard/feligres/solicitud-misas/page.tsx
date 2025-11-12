@@ -53,7 +53,7 @@ const sidebarItems = [
 
 // --- Constantes ---
 const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
-const MASS_PRICE = 50000 // Precio de la misa en COP
+const MASS_PRICE = 5000 // Precio de la misa en COP
 
 interface TimeSlot {
   time: string
