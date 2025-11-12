@@ -157,8 +157,9 @@ export default function SolicitudPartidaFeligres() {
       return
     }
 
-    // ✅ VALIDACIÓN 2: P_CUST_ID_CLIENTE (NOMBRE CORRECTO DEL BACKEND)
-    const custIdCliente = epaycoData.EPAYCO_P_CUST_ID_CLIENTE || epaycoData.p_cust_id_cliente
+    // ✅ VALIDACIÓN 2: Verificar ambas claves
+    const custIdCliente = epaycoData.EPAYCO_P_CUST_ID_CLIENTE
+    const publicKey = epaycoData.EPAYCO_P_PUBLIC_KEY
     
     if (!custIdCliente || String(custIdCliente).trim() === '') {
       console.error('❌ EPAYCO_P_CUST_ID_CLIENTE vacío o inválido:', custIdCliente)
@@ -168,13 +169,22 @@ export default function SolicitudPartidaFeligres() {
       return
     }
 
+    if (!publicKey || String(publicKey).trim() === '') {
+      console.error('❌ EPAYCO_P_PUBLIC_KEY vacía o inválida:', publicKey)
+      toast.error('Error de configuración', {
+        description: 'La clave pública de ePayco no fue recibida correctamente.'
+      })
+      return
+    }
+
     try {
-      console.log("🔑 EPAYCO_P_CUST_ID_CLIENTE recibido:", custIdCliente)
+      console.log("🔑 EPAYCO_P_CUST_ID_CLIENTE:", custIdCliente)
+      console.log("🔑 EPAYCO_P_PUBLIC_KEY:", publicKey.substring(0, 10) + '...')
       console.log("🧪 Modo de prueba:", epaycoData.test)
 
-      // ✅ CONFIGURAR HANDLER CON EPAYCO_P_CUST_ID_CLIENTE
+      // ✅ CONFIGURAR HANDLER - Usar PUBLIC_KEY (no CUST_ID)
       const handler = window.ePayco.checkout.configure({
-        key: String(custIdCliente).trim(),
+        key: String(publicKey).trim(), // ⚠️ USAR PUBLIC_KEY AQUÍ
         test: epaycoData.test === 'true' || epaycoData.test === true
       })
 
