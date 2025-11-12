@@ -31,9 +31,8 @@ const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
 const sidebarItems = [
   { title: "Registro de Administrador", href: "/dashboard/parroco/registro", icon: UserPlus },
   { title: "Gestión de Partidas", href: "/dashboard/parroco/partidas", icon: FileText },
-  { title: "Solicitudes de Partidas", href: "/dashboard/parroco/solicitud-partida", icon: ClipboardList },
   { title: "Gestión de Misas", href: "/dashboard/parroco/misas", icon: Church },
-  { title: "Solicitudes de Misa", href: "/dashboard/parroco/solicitud-misa", icon: Calendar },
+  { title: "Agenda de Misas", href: "/dashboard/parroco/solicitud-misa", icon: Calendar },
   { title: "Contabilidad", href: "/dashboard/parroco/contabilidad", icon: DollarSign },
 ]
 

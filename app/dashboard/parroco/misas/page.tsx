@@ -39,17 +39,12 @@ const sidebarItems = [
     icon: FileText,
   },
   {
-    title: "Solicitudes de Partidas",
-    href: "/dashboard/parroco/solicitud-partida",
-    icon: ClipboardList,
-  },
-  {
     title: "Gestión de Misas",
     href: "/dashboard/parroco/misas",
     icon: Church,
   },
   {
-    title: "Solicitudes de Misa",
+    title: "Agenda de Misas",
     href: "/dashboard/parroco/solicitud-misa",
     icon: CalendarIcon, // Usamos el ícono renombrado
   },
