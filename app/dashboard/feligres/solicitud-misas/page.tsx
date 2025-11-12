@@ -242,9 +242,12 @@ export default function SolicitudMisasFeligres() {
   }
 
   // --- 5. Función para abrir checkout de ePayco ---
+  // ✅ ACTUALIZADA: Validaciones mejoradas y parámetro external: 'false' para MODAL (no redirect)
   const openEpaycoCheckout = (epaycoData: any) => {
     console.log("💳 Iniciando apertura de checkout ePayco...")
+    console.log("📦 Datos recibidos del backend:", JSON.stringify(epaycoData, null, 2))
 
+    // ✅ VALIDACIÓN 1: Script cargado
     if (typeof window.ePayco === 'undefined') {
       console.error('❌ El script de ePayco no está cargado')
       toast.error('Error al cargar el sistema de pagos', {
@@ -253,58 +256,111 @@ export default function SolicitudMisasFeligres() {
       return
     }
 
-    if (!epaycoData.publicKey || String(epaycoData.publicKey).trim() === '') {
-      console.error('❌ Public Key vacía')
+    // ✅ VALIDACIÓN 2: Verificar ambas claves
+    const custIdCliente = epaycoData.EPAYCO_P_CUST_ID_CLIENTE
+    const publicKey = epaycoData.EPAYCO_P_PUBLIC_KEY || epaycoData.publicKey
+    
+    if (!custIdCliente || String(custIdCliente).trim() === '') {
+      console.error('❌ EPAYCO_P_CUST_ID_CLIENTE vacío o inválido:', custIdCliente)
       toast.error('Error de configuración', {
-        description: 'La clave pública de ePayco no fue recibida.'
+        description: 'El ID de cliente de ePayco no fue recibido correctamente.'
+      })
+      return
+    }
+
+    if (!publicKey || String(publicKey).trim() === '') {
+      console.error('❌ EPAYCO_P_PUBLIC_KEY vacía o inválida:', publicKey)
+      toast.error('Error de configuración', {
+        description: 'La clave pública de ePayco no fue recibida correctamente.'
       })
       return
     }
 
     try {
+      console.log("🔑 EPAYCO_P_CUST_ID_CLIENTE:", custIdCliente)
+      console.log("🔑 EPAYCO_P_PUBLIC_KEY:", String(publicKey).substring(0, 10) + '...')
+      console.log("🧪 Modo de prueba:", epaycoData.test)
+
+      // ✅ CONFIGURAR HANDLER - Usar PUBLIC_KEY (no CUST_ID)
       const handler = window.ePayco.checkout.configure({
-        key: String(epaycoData.publicKey).trim(),
+        key: String(publicKey).trim(), // ⚠️ USAR PUBLIC_KEY AQUÍ
         test: epaycoData.test === 'true' || epaycoData.test === true
       })
 
+      console.log('ℹ️ Handler configurado correctamente')
+
+      // ✅ PREPARAR DATOS LIMPIOS PARA STANDARD CHECKOUT
       const checkoutData = {
-        name: epaycoData.name || 'Pago de misa',
-        description: epaycoData.description || 'Pago por solicitud de misa',
-        invoice: epaycoData.invoice,
+        // Información básica del pago
+        name: String(epaycoData.name || 'Pago de misa').trim(),
+        description: String(epaycoData.description || 'Pago por solicitud de misa').trim(),
+        invoice: String(epaycoData.invoice).trim(),
         currency: 'cop',
         amount: String(epaycoData.amount).replace(/[^\d]/g, ''),
         tax_base: '0',
         tax: '0',
         country: 'co',
         lang: 'es',
-        external: 'false',
-        response: epaycoData.responseUrl || epaycoData.response,
-        confirmation: epaycoData.confirmationUrl || epaycoData.confirmation,
-        name_billing: String(epaycoData.name_billing || '').trim(),
+        external: 'false', // ⚠️ CRÍTICO: 'false' = MODAL (no redirect)
+
+        // URLs de respuesta (VALIDADAS)
+        response: String(epaycoData.responseUrl || epaycoData.response).trim(),
+        confirmation: String(epaycoData.confirmationUrl || epaycoData.confirmation).trim(),
+
+        // Datos de facturación LIMPIOS Y VALIDADOS
+        name_billing: String(epaycoData.name_billing || 'Usuario').trim(),
         email_billing: String(epaycoData.email_billing || '').trim(),
-        address_billing: String(epaycoData.address_billing || '').trim(),
-        type_doc_billing: epaycoData.type_doc_billing || 'CC',
-        mobilephone_billing: String(epaycoData.mobilephone_billing || '').replace(/[^\d]/g, ''),
+        address_billing: String(epaycoData.address_billing || 'N/A').trim().substring(0, 100),
+        type_doc_billing: String(epaycoData.type_doc_billing || 'CC').trim(),
+        mobilephone_billing: String(epaycoData.mobilephone_billing || '').replace(/[^\d]/g, '').substring(0, 10),
         number_doc_billing: String(epaycoData.number_doc_billing || '').replace(/[^\d]/g, ''),
-        extra1: epaycoData.extra1 || '',
-        extra2: epaycoData.extra2 || '',
-        extra3: epaycoData.extra3 || '',
+
+        // Extras (OPCIONALES pero validados)
+        extra1: String(epaycoData.extra1 || '').trim(),
+        extra2: String(epaycoData.extra2 || '').trim(),
+        extra3: String(epaycoData.extra3 || '').trim(),
       }
 
-      console.log("✅ Datos preparados para checkout:", JSON.stringify(checkoutData, null, 2))
+      // ⚠️ VALIDACIÓN CRÍTICA: Verificar campos obligatorios
+      const requiredFields: (keyof typeof checkoutData)[] = [
+        'name', 'description', 'invoice', 'amount', 
+        'response', 'confirmation', 
+        'name_billing', 'email_billing', 'mobilephone_billing', 'number_doc_billing'
+      ]
 
+      for (const field of requiredFields) {
+        if (!checkoutData[field] || checkoutData[field] === '') {
+          console.error(`❌ Campo requerido vacío: ${field}`)
+          toast.error('Error en los datos del pago', {
+            description: `El campo ${field} no puede estar vacío. Por favor contacta a soporte.`
+          })
+          return
+        }
+      }
+
+      console.log("✅ Datos preparados y validados para checkout:", JSON.stringify(checkoutData, null, 2))
+
+      // ✅ ABRIR CHECKOUT
+      console.log("🚀 Abriendo checkout con handler.open()...")
+      
       if (typeof handler.open !== 'function') {
         console.error('❌ handler.open() no está disponible')
-        throw new Error('El método open() no está disponible')
+        console.error('Tipo de handler:', typeof handler)
+        console.error('Métodos disponibles:', Object.keys(handler || {}))
+        throw new Error('El método open() no está disponible en el handler de ePayco')
       }
 
       handler.open(checkoutData)
       console.log('✅ Checkout abierto exitosamente')
 
     } catch (error: any) {
-      console.error('❌ Error al abrir checkout:', error)
+      console.error('❌ Error al abrir checkout de ePayco:', error)
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'Sin stack disponible')
+      
       toast.error('Error al abrir la pasarela de pago', {
-        description: error.message || 'Error desconocido',
+        description: error instanceof Error 
+          ? error.message 
+          : 'Error desconocido. Por favor, intenta de nuevo o contacta a soporte.',
         duration: 5000
       })
     }
