@@ -83,29 +83,29 @@ export default function AboutPage() {
               <MapPin className="w-8 h-8 text-primary mx-auto mb-3" />
               <h4 className="font-semibold mb-2">Dirección</h4>
               <p className="text-sm text-muted-foreground">
-                Calle Principal #123
+                Calle 35, 10-07
                 <br />
-                Barrio Centro
+                Barrio la Pradera
                 <br />
-                Ciudad, País
+                Sogamoso-Boyacá, Colombia
               </p>
             </Card>
             <Card className="text-center p-6">
               <Phone className="w-8 h-8 text-primary mx-auto mb-3" />
               <h4 className="font-semibold mb-2">Teléfono</h4>
               <p className="text-sm text-muted-foreground">
-                +57 (1) 234-5678
+                +57 315 592 3440
                 <br />
-                +57 (1) 234-5679
+                +57 321 948 1516
               </p>
             </Card>
             <Card className="text-center p-6">
               <Mail className="w-8 h-8 text-primary mx-auto mb-3" />
               <h4 className="font-semibold mb-2">Email</h4>
               <p className="text-sm text-muted-foreground">
-                info@sagradafamilia.org
+                sanabrialesmesandresfelipe@gmail.com
                 <br />
-                parroco@sagradafamilia.org
+                Parroquiasagradafamilia10@gmail.com
               </p>
             </Card>
             <Card className="text-center p-6">
