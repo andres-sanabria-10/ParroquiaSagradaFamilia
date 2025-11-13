@@ -72,17 +72,12 @@ const sidebarItems = [
     icon: FileText,
   },
   {
-    title: "Solicitudes de Partidas",
-    href: "/dashboard/secretaria/solicitud-partida",
-    icon: ClipboardList,
-  },
-  {
     title: "Gestión de Misas",
     href: "/dashboard/secretaria/misas",
     icon: Church,
   },
   {
-    title: "Solicitudes de Misa",
+    title: "Agenda de Misas",
     href: "/dashboard/secretaria/solicitud-misa",
     icon: Calendar,
   },
