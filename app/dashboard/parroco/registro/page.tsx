@@ -29,6 +29,7 @@ import { toast } from "sonner"
 const API_URL = "https://api-parroquiasagradafamilia-s6qu.onrender.com"
 
 const sidebarItems = [
+  { title: "Inicio", href: "/dashboard/parroco", icon: Church },
   { title: "Registro de Administrador", href: "/dashboard/parroco/registro", icon: UserPlus },
   { title: "Gestión de Partidas", href: "/dashboard/parroco/partidas", icon: FileText },
   { title: "Gestión de Misas", href: "/dashboard/parroco/misas", icon: Church },

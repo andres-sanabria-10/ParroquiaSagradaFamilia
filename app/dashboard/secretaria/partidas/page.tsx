@@ -67,6 +67,11 @@ import { FormularioDefuncion } from "../../components/FormularioDefuncion"
 // --- Sidebar ---
 const sidebarItems = [
   {
+    title: "Inicio",
+    href: "/dashboard/secretaria",
+    icon: Church,
+  }, 
+  {
     title: "Gestión de Partidas",
     href: "/dashboard/secretaria/partidas",
     icon: FileText,

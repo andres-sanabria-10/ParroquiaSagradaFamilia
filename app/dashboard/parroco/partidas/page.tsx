@@ -67,6 +67,11 @@ import { FormularioDefuncion } from "../../components/FormularioDefuncion"
 // --- Sidebar ---
 const sidebarItems = [
   {
+    title: "Inicio",
+    href: "/dashboard/parroco",
+    icon: Church,
+  },
+  {
     title: "Registro de Administrador",
     href: "/dashboard/parroco/registro",
     icon: UserPlus,

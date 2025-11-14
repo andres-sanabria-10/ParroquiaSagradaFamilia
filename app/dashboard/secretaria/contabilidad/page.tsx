@@ -19,18 +19,41 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { FileText, Church, DollarSign, Calendar, TrendingUp } from "lucide-react"
+import { FileText, Church, DollarSign, Calendar, TrendingUp, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
 
 // --- Config ---
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api-parroquiasagradafamilia-s6qu.onrender.com"
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "https://api-parroquiasagradafamilia-s6qu.onrender.com"
 
 const sidebarItems = [
-  { title: "Gestión de Partidas", href: "/dashboard/secretaria/partidas", icon: FileText },
-  { title: "Gestión de Misas", href: "/dashboard/secretaria/misas", icon: Church },
-  { title: "Agenda de Misas", href: "/dashboard/secretaria/solicitud-misa", icon: Calendar },
-  { title: "Contabilidad", href: "/dashboard/secretaria/contabilidad", icon: DollarSign },
+  {
+    title: "Inicio",
+    href: "/dashboard/secretaria",
+    icon: Church,
+  }, 
+  {
+    title: "Gestión de Partidas",
+    href: "/dashboard/secretaria/partidas",
+    icon: FileText,
+  },
+  {
+    title: "Gestión de Misas",
+    href: "/dashboard/secretaria/misas",
+    icon: Church,
+  },
+  {
+    title: "Agenda de Misas",
+    href: "/dashboard/secretaria/solicitud-misa",
+    icon: Calendar,
+  },
+  {
+    title: "Contabilidad",
+    href: "/dashboard/secretaria/contabilidad",
+    icon: DollarSign,
+  },
 ]
 
 // --- Tipos ---
@@ -54,7 +77,10 @@ interface Payment {
 }
 
 // --- Utilidades ---
-function safeFormatDate(dateString: string | undefined | null, formatStr = "dd/MM/yyyy h:mm a") {
+function safeFormatDate(
+  dateString: string | undefined | null,
+  formatStr = "dd/MM/yyyy h:mm a"
+) {
   if (!dateString) return "N/A"
   const d = new Date(dateString)
   if (Number.isNaN(d.getTime())) return "N/A"
@@ -115,24 +141,45 @@ function SummaryStatCard({
     <Card>
       <CardHeader className="flex items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className={emphasize ? "h-4 w-4 text-green-600" : "h-4 w-4 text-muted-foreground"} />
+        <Icon
+          className={
+            emphasize ? "h-4 w-4 text-green-600" : "h-4 w-4 text-muted-foreground"
+          }
+        />
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <Skeleton className="h-8 w-1/2" />
         ) : (
-          <div className={`text-2xl font-bold ${emphasize ? "text-green-600" : ""}`}>{value}</div>
+          <div
+            className={`text-2xl font-bold ${
+              emphasize ? "text-green-600" : ""
+            }`}
+          >
+            {value}
+          </div>
         )}
-        {caption && <p className="text-xs text-muted-foreground mt-1">{caption}</p>}
+        {caption && (
+          <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
+        )}
       </CardContent>
     </Card>
   )
 }
 
-function PaymentsTable({ payments, isLoading }: { payments: Payment[]; isLoading: boolean }) {
+function PaymentsTable({
+  payments,
+  isLoading,
+}: {
+  payments: Payment[]
+  isLoading: boolean
+}) {
   const sorted = useMemo(
     () =>
-      [...payments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+      [...payments].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
     [payments]
   )
 
@@ -143,7 +190,7 @@ function PaymentsTable({ payments, isLoading }: { payments: Payment[]; isLoading
   }
 
   return (
-    <div className="rounded-xl border overflow-x-auto">
+    <div className="overflow-x-auto rounded-xl border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -159,38 +206,78 @@ function PaymentsTable({ payments, isLoading }: { payments: Payment[]; isLoading
           {isLoading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <TableRow key={`s-${i}`}>
-                <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-60" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-28" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-36" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-60" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-24" />
+                </TableCell>
+                <TableCell className="text-right">
+                  <Skeleton className="ml-auto h-4 w-16" />
+                </TableCell>
               </TableRow>
             ))
           ) : sorted.length ? (
             sorted.map((p) => (
               <TableRow key={p._id}>
-                <TableCell className="whitespace-nowrap">{safeFormatDate(p.createdAt)}</TableCell>
-                <TableCell className="whitespace-nowrap">{getPayerName(p)}</TableCell>
-                <TableCell className="truncate max-w-[420px]" title={p.description}>{p.description}</TableCell>
                 <TableCell className="whitespace-nowrap">
-                  <Badge variant="outline" className={p.paymentMethod === "cash_admin" ? "border-blue-400 text-blue-700 bg-blue-50" : ""}>
+                  {safeFormatDate(p.createdAt)}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {getPayerName(p)}
+                </TableCell>
+                <TableCell
+                  className="max-w-[420px] truncate"
+                  title={p.description}
+                >
+                  {p.description}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <Badge
+                    variant="outline"
+                    className={
+                      p.paymentMethod === "cash_admin"
+                        ? "border-blue-400 bg-blue-50 text-blue-700"
+                        : ""
+                    }
+                  >
                     {methodLabel(p.paymentMethod)}
                   </Badge>
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
-                  <Badge variant="outline" className={getStatusBadgeClasses(p.status)}>
+                  <Badge
+                    variant="outline"
+                    className={getStatusBadgeClasses(p.status)}
+                  >
                     {STATUS_LABEL[p.status]}
                   </Badge>
                 </TableCell>
-                <TableCell className={`text-right font-medium ${p.status === "approved" ? "text-green-700" : "text-muted-foreground"}`}>
+                <TableCell
+                  className={`text-right font-medium ${
+                    p.status === "approved"
+                      ? "text-green-700"
+                      : "text-muted-foreground"
+                  }`}
+                >
                   {currencyFormatter.format(p.amount)}
                 </TableCell>
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+              <TableCell
+                colSpan={6}
+                className="py-8 text-center text-muted-foreground"
+              >
                 No se encontraron pagos registrados.
               </TableCell>
             </TableRow>
@@ -202,7 +289,7 @@ function PaymentsTable({ payments, isLoading }: { payments: Payment[]; isLoading
 }
 
 // --- Componente principal ---
-export default function ContabilidadSecretaria() {
+export default function ContabilidadParroco() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [totalTransactions, setTotalTransactions] = useState(0)
@@ -217,7 +304,9 @@ export default function ContabilidadSecretaria() {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
         })
+
         if (!res.ok) throw new Error("Error al cargar el historial de pagos")
+
         const data = await res.json()
 
         if (data?.success) {
@@ -228,7 +317,9 @@ export default function ContabilidadSecretaria() {
           throw new Error(data?.error || "Error en la respuesta del servidor")
         }
       } catch (e: any) {
-        toast.error("Error al cargar pagos", { description: e?.message ?? "Intenta nuevamente" })
+        toast.error("Error al cargar pagos", {
+          description: e?.message ?? "Intenta nuevamente",
+        })
         setPayments([])
       } finally {
         setIsLoading(false)
@@ -239,18 +330,23 @@ export default function ContabilidadSecretaria() {
   }, [])
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar items={sidebarItems} userRole="secretaria" />
+    // 🔥 Aquí el cambio importante: h-screen en lugar de min-h-screen
+    <div className="flex h-screen bg-background">
+      <Sidebar items={sidebarItems} userRole="Secretaria" />
 
       <main className="flex-1 overflow-y-auto">
         <div className="px-6 py-6 md:px-8 md:py-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Contabilidad</h1>
-            <p className="text-muted-foreground">Consulta el histórico de transacciones</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Contabilidad
+            </h1>
+            <p className="text-muted-foreground">
+              Consulta el histórico de transacciones
+            </p>
           </div>
 
           {/* Resumen */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 mb-8">
+          <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
             <SummaryStatCard
               title="Total Ingresos (Aprobados)"
               caption="Suma de todos los pagos aprobados"
@@ -272,7 +368,9 @@ export default function ContabilidadSecretaria() {
           <Card>
             <CardHeader>
               <CardTitle>Histórico de Ingresos</CardTitle>
-              <CardDescription>Registro de todos los pagos (más recientes primero)</CardDescription>
+              <CardDescription>
+                Registro de todos los pagos (más recientes primero)
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <PaymentsTable payments={payments} isLoading={isLoading} />

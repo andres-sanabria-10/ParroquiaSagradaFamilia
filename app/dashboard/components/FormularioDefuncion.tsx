@@ -29,12 +29,12 @@ import { format } from "date-fns"
 
 // --- Schema (sin cambios) ---
 const formSchema = z.object({
-  documentNumber: z.string().min(5, "Documento requerido"),
+  documentNumber: z.string().min(5, "Debe tener al menos 5 caracteres"),
   typeDocument: z.string({ required_error: "Debe seleccionar un tipo." }),
-  name: z.string().min(2, "Nombre requerido"),
-  lastName: z.string().min(2, "Apellido requerido"),
-  mail: z.string().email("Email requerido"),
-  birthdate: z.string().date("Fecha requerida"),
+  name: z.string().min(2, "El nombre es requerido"),
+  lastName: z.string().min(2, "El apellido es requerido"),
+  mail: z.string().email("Debe ser un email válido"),
+  birthdate: z.string().date("Debe ser una fecha válida"),
   deathDate: z.string().date("Debe ser una fecha válida"),
   fatherName: z.string().min(2, "Campo requerido"),
   motherName: z.string().min(2, "Campo requerido"),
@@ -47,9 +47,10 @@ const formSchema = z.object({
 
 type DefuncionFormValues = z.infer<typeof formSchema>
 
+// ✨ CORRECCIÓN AQUÍ
 interface DocumentType {
   _id: string
-  name: string
+  document_type_name: string 
 }
 
 interface FormularioDefuncionProps {
@@ -144,7 +145,7 @@ export function FormularioDefuncion({ onSuccess, defaultValues, documentTypes }:
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
 
         {/* ========================================================== */}
-        {/* ✨ CAMBIO AQUÍ: Este Card solo se muestra si NO estamos editando */}
+        {/* Este Card solo se muestra si NO estamos editando */}
         {/* ========================================================== */}
         {!isEditing && (
           <Card>
@@ -190,9 +191,10 @@ export function FormularioDefuncion({ onSuccess, defaultValues, documentTypes }:
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          {/* ✨ CORRECCIÓN AQUÍ */}
                           {documentTypes.map((doc) => (
                             <SelectItem key={doc._id} value={doc._id}>
-                              {doc.name}
+                              {doc.document_type_name}
                             </SelectItem>
                           ))}
                         </SelectContent>

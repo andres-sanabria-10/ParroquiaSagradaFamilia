@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select" 
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
-import { useState, useEffect } from "react" 
+import { useState } from "react" 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
 
@@ -45,9 +45,10 @@ const formSchema = z.object({
 
 type BautismoFormValues = z.infer<typeof formSchema>
 
+// ✨ CORRECCIÓN AQUÍ: Usamos el nombre correcto de la propiedad
 interface DocumentType {
   _id: string
-  name: string
+  document_type_name: string // <-- Esto es lo que viene de tu base de datos
 }
 
 interface FormularioBautismoProps {
@@ -70,11 +71,11 @@ export function FormularioBautismo({ onSuccess, defaultValues, documentTypes }: 
     defaultValues: defaultValues || {},
   })
   
-  const { setValue, trigger, getValues } = form
+  const { setValue } = form
 
   const handleCheckUser = async () => {
     if (isEditing || isCheckingUser) return;
-    const documentNumber = getValues("documentNumber");
+    const documentNumber = form.getValues("documentNumber");
     if (documentNumber.length < 5) return; 
 
     setIsCheckingUser(true);
@@ -90,10 +91,13 @@ export function FormularioBautismo({ onSuccess, defaultValues, documentTypes }: 
         setValue("lastName", user.lastName);
         setValue("mail", user.mail);
         setValue("birthdate", format(new Date(user.birthdate), "yyyy-MM-dd"));
+        // Usamos el _id del tipo de documento del usuario
         setValue("typeDocument", user.typeDocument._id); 
+        
         setUserExists(true); 
         toast.success("Usuario encontrado. Datos autocompletados.");
-        trigger(["name", "lastName", "mail", "birthdate", "typeDocument"]);
+        // Validamos los campos que llenamos
+        form.trigger(["name", "lastName", "mail", "birthdate", "typeDocument"]);
       } else {
         setUserExists(false); 
         toast.info("Usuario no registrado. Por favor, complete los datos.");
@@ -143,7 +147,7 @@ export function FormularioBautismo({ onSuccess, defaultValues, documentTypes }: 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
 
         {/* ========================================================== */}
-        {/* ✨ CAMBIO AQUÍ: Este Card solo se muestra si NO estamos editando */}
+        {/* Este Card solo se muestra si NO estamos editando */}
         {/* ========================================================== */}
         {!isEditing && (
           <Card>
@@ -189,9 +193,10 @@ export function FormularioBautismo({ onSuccess, defaultValues, documentTypes }: 
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          {/* ✨ CORRECCIÓN AQUÍ: Usamos document_type_name */}
                           {documentTypes.map((doc) => (
                             <SelectItem key={doc._id} value={doc._id}>
-                              {doc.name}
+                              {doc.document_type_name}
                             </SelectItem>
                           ))}
                         </SelectContent>

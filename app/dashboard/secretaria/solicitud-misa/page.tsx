@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
@@ -28,15 +27,11 @@ import {
   DollarSign,
   ClipboardList,
   Calendar,
-  Check,
-  Trash2,
   Loader2,
-  History,
   Eye,
   UserCheck,
   UserPlus,
   PlusCircle,
-  Bell, // ✨ 1. Importamos el ícono para "Pendientes"
 } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -55,7 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { useForm, Controller } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns"
@@ -63,6 +58,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 
 // --- Sidebar ---
 const sidebarItems = [
+  {
+    title: "Inicio",
+    href: "/dashboard/secretaria",
+    icon: Church,
+  }, 
   {
     title: "Gestión de Partidas",
     href: "/dashboard/secretaria/partidas",
@@ -105,9 +105,10 @@ interface TimeSlot {
   available: boolean
 }
 
+// ✨ CORREGIDO: Usamos la estructura que me pasaste
 interface DocumentType {
   _id: string
-  name: string
+  document_type_name: string 
 }
 
 const formSchema = z.object({
@@ -116,7 +117,7 @@ const formSchema = z.object({
   name: z.string().min(2, "Nombre requerido"),
   lastName: z.string().min(2, "Apellido requerido"),
   mail: z.string().email("Email requerido"),
-  birthdate: z.string().date("Fecha requerida"),
+  birthdate: z.string().min(1, "Fecha requerida"),
   date: z.date({ required_error: "Debe seleccionar una fecha." }),
   time: z.string({ required_error: "Debe seleccionar una hora." }),
   intention: z.string().min(5, "La intención es requerida."),
@@ -129,19 +130,13 @@ function parseUTCDate(dateString: string): Date {
   return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
-
 export default function GestionSolicitudesMisa() {
-  // --- Estados para la TABLA PRINCIPAL (Confirmadas) ---
+  // --- Estados ---
   const [confirmedMasses, setConfirmedMasses] = useState<SolicitudMisa[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [viewingIntention, setViewingIntention] = useState<string | null>(null)
   
-  // --- ✨ 2. ESTADOS PARA EL MODAL DE PENDIENTES ---
-  const [pendingMasses, setPendingMasses] = useState<SolicitudMisa[]>([])
-  const [isPendingLoading, setIsPendingLoading] = useState(false)
-  const [actionLoading, setActionLoading] = useState<Record<string, 'approve' | 'delete' | null>>({})
-
-  // --- Estados para el MODAL DE AGENDAR ---
+  // --- Estados Modal Agendar ---
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([])
   const [userExists, setUserExists] = useState(false)
@@ -152,83 +147,60 @@ export default function GestionSolicitudesMisa() {
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // --- Lógica de la TABLA (Cargar Confirmadas) ---
+  // --- Cargar Historial (Confirmadas) ---
   const fetchConfirmedMasses = async () => {
     setIsLoading(true)
-    setConfirmedMasses([]) 
+    setConfirmedMasses([])
     try {
       const res = await fetch(`${API_URL}/requestMass/confirmed`, {
-        method: 'GET',
-        credentials: 'include',
+        method: "GET",
+        credentials: "include",
       })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Error al cargar misas confirmadas") }
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Error al cargar misas confirmadas")
+      }
+  
       const data: SolicitudMisa[] = await res.json()
-      setConfirmedMasses(data)
+  
+      // Hoy a las 00:00 (para comparar solo por fecha)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+  
+      // Función que convierte fecha + hora de la misa en un timestamp
+      const getMassTimestamp = (misa: SolicitudMisa) => {
+        const date = parseUTCDate(misa.date) // solo la fecha
+        const [hours, minutes] = misa.time.split(":").map(Number)
+        date.setHours(hours || 0, minutes || 0, 0, 0)
+        return date.getTime()
+      }
+  
+      const upcoming = data
+        // 1️⃣ Solo misas desde hoy en adelante
+        .filter((misa) => parseUTCDate(misa.date) >= today)
+        // 2️⃣ Ordenar por fecha + hora (la más cercana primero)
+        .sort((a, b) => getMassTimestamp(a) - getMassTimestamp(b))
+  
+      setConfirmedMasses(upcoming)
     } catch (error: any) {
       toast.error("Error al cargar historial", { description: error.message })
     } finally {
       setIsLoading(false)
     }
   }
-
-  // --- ✨ 3. LÓGICA PARA EL MODAL DE PENDIENTES ---
-  const fetchPendingMasses = async () => {
-    setIsPendingLoading(true)
-    setPendingMasses([])
-    try {
-      const res = await fetch(`${API_URL}/requestMass/earring`, { method: 'GET', credentials: 'include' })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Error al cargar misas pendientes") }
-      const data: SolicitudMisa[] = await res.json()
-      setPendingMasses(data)
-    } catch (error: any) {
-      toast.error("Error al cargar pendientes", { description: error.message })
-    } finally {
-      setIsPendingLoading(false)
-    }
-  }
-
-  const handleApproveMass = async (id: string) => {
-    setActionLoading(prev => ({ ...prev, [id]: 'approve' }))
-    try {
-      const res = await fetch(`${API_URL}/requestMass/confirm/${id}`, { method: 'POST', credentials: 'include' })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "No se pudo confirmar la misa") }
-      toast.success("Misa confirmada exitosamente")
-      fetchPendingMasses() // Recargamos la lista de pendientes
-      fetchConfirmedMasses() // Recargamos la lista principal de confirmadas
-    } catch (error: any) {
-      toast.error("Error al confirmar", { description: error.message })
-    } finally {
-      setActionLoading(prev => ({ ...prev, [id]: null }))
-    }
-  }
   
-  const handleDeleteMass = async (id: string) => {
-    setActionLoading(prev => ({ ...prev, [id]: 'delete' }))
-    try {
-      const res = await fetch(`${API_URL}/requestMass/${id}`, { method: 'DELETE', credentials: 'include' })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "No se pudo eliminar la solicitud") }
-      toast.success("Solicitud eliminada correctamente")
-      fetchPendingMasses() // Recargamos la lista de pendientes
-    } catch (error: any) {
-      toast.error("Error al eliminar", { description: error.message })
-    } finally {
-      setActionLoading(prev => ({ ...prev, [id]: null }))
-    }
-  }
+  
 
-  // Cargar las misas confirmadas al iniciar la página
   useEffect(() => {
     fetchConfirmedMasses()
   }, [])
   
   const getApplicantName = (applicant: SolicitudMisa['applicant']) => {
-    if (!applicant) {
-      return <span className="text-muted-foreground italic">Usuario Eliminado</span>
-    }
+    if (!applicant) return <span className="text-muted-foreground italic">Usuario Eliminado</span>
     return `${applicant.name} ${applicant.lastName}`
   }
 
-  // --- Lógica del MODAL DE AGENDAR (Sin cambios) ---
+  // --- Lógica Modal Agendar ---
   const form = useForm<MassRequestFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { documentNumber: "", name: "", lastName: "", mail: "", birthdate: "", intention: "" },
@@ -243,6 +215,7 @@ export default function GestionSolicitudesMisa() {
             const res = await fetch(`${API_URL}/documentType/`, { credentials: "include" })
             if (!res.ok) throw new Error("Error al cargar tipos de documento")
             const data = await res.json()
+            // ✨ CORREGIDO: Usamos data?.data como en tu ejemplo
             setDocumentTypes(data?.data || [])
           } catch (e) {
             toast.error("No se pudieron cargar los tipos de documento");
@@ -271,6 +244,7 @@ export default function GestionSolicitudesMisa() {
         setValue("lastName", user.lastName);
         setValue("mail", user.mail);
         setValue("birthdate", format(new Date(user.birthdate), "yyyy-MM-dd"));
+        // Usamos el _id del tipo de documento
         setValue("typeDocument", user.typeDocument._id); 
         setUserExists(true); 
         toast.success("Usuario encontrado.", { icon: <UserCheck className="text-green-500" /> });
@@ -338,7 +312,6 @@ export default function GestionSolicitudesMisa() {
     fetchSlots();
   }, [modalSelectedDate, setValue]);
 
-  // Submit del formulario del modal
   const onSubmit = async (data: MassRequestFormValues) => {
     setIsSubmitting(true);
     const payload = { ...data, date: format(data.date, "yyyy-MM-dd") };
@@ -356,8 +329,8 @@ export default function GestionSolicitudesMisa() {
       reset();
       setUserExists(false);
       setAvailableTimes([]);
-      setIsCreateModalOpen(false); // Cierra el modal
-      // No recargamos la tabla principal porque esta se queda en "Pendiente"
+      setIsCreateModalOpen(false); 
+      fetchConfirmedMasses(); 
     } catch (error: any) {
       toast.error("Error al crear la solicitud", { description: error.message })
     } finally {
@@ -372,73 +345,11 @@ export default function GestionSolicitudesMisa() {
         <main className="flex-1 overflow-y-auto">
           <div className="p-6">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-foreground">Agenda de Misas</h1>
+              <h1 className="text-3xl font-bold text-foreground">Misas agendadas</h1>
               <p className="text-muted-foreground">Agenda misas para feligreses y consulta el historial de misas confirmadas.</p>
             </div>
 
-            {/* --- ✨ 4. BOTONES DE ACCIÓN (Historial -> Pendientes) --- */}
             <div className="flex justify-end mb-4 space-x-2">
-              <Dialog onOpenChange={(open) => {
-                if (open) fetchPendingMasses() // Carga las pendientes solo al abrir el modal
-              }}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Bell className="mr-2 h-4 w-4" /> {/* Cambiamos el ícono */}
-                    Ver Pendientes
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-4xl">
-                  {/* --- Contenido del modal de PENDIENTES --- */}
-                  <DialogHeader>
-                    <DialogTitle>Solicitudes de Misa Pendientes</DialogTitle>
-                    <DialogDescription>
-                      Misas pendientes de pago o que requieren confirmación manual.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="max-h-[60vh] overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Solicitante</TableHead>
-                          <TableHead>Fecha</TableHead>
-                          <TableHead>Hora</TableHead>
-                          <TableHead>Estado</TableHead>
-                          <TableHead className="text-right">Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {isPendingLoading ? (
-                          <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Cargando...</TableCell></TableRow>
-                        ) : pendingMasses.length > 0 ? (
-                          pendingMasses.map((req) => (
-                            <TableRow key={req._id}>
-                              <TableCell className="font-medium">{getApplicantName(req.applicant)}</TableCell>
-                              <TableCell>{format(parseUTCDate(req.date), "dd/MM/yyyy")}</TableCell>
-                              <TableCell>{req.time}</TableCell>
-                              <TableCell><Badge variant="outline">{req.status}</Badge></TableCell>
-                              <TableCell className="text-right space-x-2">
-                                <Button variant="outline" size="sm" onClick={() => setViewingIntention(req.intention)}><Eye className="w-4 h-4" /></Button>
-                                <Button size="sm" variant="default" onClick={() => handleApproveMass(req._id)} disabled={!!actionLoading[req._id]}>
-                                  {actionLoading[req._id] === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                                  Confirmar
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleDeleteMass(req._id)} disabled={!!actionLoading[req._id]}>
-                                  {actionLoading[req._id] === 'delete' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                                  Eliminar
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow><TableCell colSpan={5} className="text-center">No hay solicitudes pendientes.</TableCell></TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              {/* --- Botón para Agendar Misa (Asistida) --- */}
               <Dialog open={isCreateModalOpen} onOpenChange={onModalOpenChange}>
                 <DialogTrigger asChild>
                   <Button>
@@ -447,7 +358,6 @@ export default function GestionSolicitudesMisa() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-4xl">
-                  {/* ... (Contenido del modal de Agendar Misa - Sin cambios) ... */}
                   <DialogHeader>
                     <DialogTitle>Agendar Nueva Misa (Asistida)</DialogTitle>
                     <DialogDescription>
@@ -456,7 +366,7 @@ export default function GestionSolicitudesMisa() {
                   </DialogHeader>
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-h-[80vh] overflow-y-auto pr-4">
-                      {/* --- PASO 1 --- */}
+                      {/* PASO 1 */}
                       <Card>
                         <CardHeader><CardTitle>Paso 1: Datos del Solicitante</CardTitle><CardDescription>Busca por DNI o crea un nuevo registro.</CardDescription></CardHeader>
                         <CardContent className="space-y-4">
@@ -464,8 +374,23 @@ export default function GestionSolicitudesMisa() {
                             <FormField control={control} name="documentNumber" render={({ field }) => (
                               <FormItem><FormLabel>Número de Documento</FormLabel><div className="flex items-center space-x-2"><FormControl><Input placeholder="DNI..." {...field} onBlur={handleCheckUser} /></FormControl>{isCheckingUser && <Loader2 className="h-4 w-4 animate-spin" />}</div><FormMessage /></FormItem>
                             )} />
+                            
+                            {/* --- ✨ SELECT CORREGIDO --- */}
                             <FormField control={control} name="typeDocument" render={({ field }) => (
-                              <FormItem><FormLabel>Tipo de Documento</FormLabel><Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={userExists}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger></FormControl><SelectContent>{documentTypes.map((doc) => (<SelectItem key={doc._id} value={doc._id}>{doc.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>
+                              <FormItem><FormLabel>Tipo de Documento</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={userExists}>
+                                  <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger></FormControl>
+                                  <SelectContent>
+                                    {documentTypes.map((doc) => (
+                                      // Usamos document_type_name
+                                      <SelectItem key={doc._id} value={doc._id}>
+                                        {doc.document_type_name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
                             )} />
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -478,7 +403,8 @@ export default function GestionSolicitudesMisa() {
                           </div>
                         </CardContent>
                       </Card>
-                      {/* --- PASO 2 --- */}
+                      
+                      {/* PASO 2 */}
                       <Card>
                         <CardHeader><CardTitle>Paso 2: Fecha y Hora de la Misa</CardTitle></CardHeader>
                         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -500,7 +426,8 @@ export default function GestionSolicitudesMisa() {
                           </div>
                         </CardContent>
                       </Card>
-                      {/* --- PASO 3 --- */}
+
+                      {/* PASO 3 */}
                       <Card>
                         <CardHeader><CardTitle>Paso 3: Intención de la Misa</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -518,7 +445,7 @@ export default function GestionSolicitudesMisa() {
               </Dialog>
             </div>
 
-            {/* --- TABLA PRINCIPAL: HISTORIAL DE MISAS CONFIRMADAS --- */}
+            {/* --- TABLA PRINCIPAL --- */}
             <Card>
               <CardHeader>
                 <CardTitle>Historial de Misas Confirmadas</CardTitle>
@@ -548,9 +475,6 @@ export default function GestionSolicitudesMisa() {
                           <TableCell className="font-medium">{getApplicantName(req.applicant)}</TableCell>
                           <TableCell>{format(parseUTCDate(req.date), "dd/MM/yyyy")}</TableCell>
                           <TableCell>{req.time}</TableCell>
-                          {/* ========================================================== */}
-                          {/* ✨ 5. BADGE DE "CONFIRMADA" CON FONDO VERDE */}
-                          {/* ========================================================== */}
                           <TableCell>
                             <Badge className="bg-green-600 hover:bg-green-700 text-white">
                               {req.status}
@@ -576,7 +500,7 @@ export default function GestionSolicitudesMisa() {
         </main>
       </div>
 
-      {/* --- MODAL PARA VER INTENCIÓN (de la tabla) --- */}
+      {/* --- MODAL PARA VER INTENCIÓN --- */}
       <Dialog open={!!viewingIntention} onOpenChange={(isOpen) => !isOpen && setViewingIntention(null)}>
         <DialogContent>
           <DialogHeader>

@@ -44,9 +44,10 @@ const formSchema = z.object({
 
 type ConfirmacionFormValues = z.infer<typeof formSchema>
 
+// ✨ CORRECCIÓN AQUÍ
 interface DocumentType {
   _id: string
-  name: string
+  document_type_name: string 
 }
 
 interface FormularioConfirmacionProps {
@@ -141,7 +142,7 @@ export function FormularioConfirmacion({ onSuccess, defaultValues, documentTypes
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
 
         {/* ========================================================== */}
-        {/* ✨ CAMBIO AQUÍ: Este Card solo se muestra si NO estamos editando */}
+        {/* Este Card solo se muestra si NO estamos editando */}
         {/* ========================================================== */}
         {!isEditing && (
           <Card>
@@ -187,9 +188,10 @@ export function FormularioConfirmacion({ onSuccess, defaultValues, documentTypes
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          {/* ✨ CORRECCIÓN AQUÍ */}
                           {documentTypes.map((doc) => (
                             <SelectItem key={doc._id} value={doc._id}>
-                              {doc.name}
+                              {doc.document_type_name}
                             </SelectItem>
                           ))}
                         </SelectContent>

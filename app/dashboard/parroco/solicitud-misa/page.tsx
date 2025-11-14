@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
@@ -28,10 +27,7 @@ import {
   DollarSign,
   ClipboardList,
   Calendar,
-  Check,
-  Trash2,
   Loader2,
-  History,
   Eye,
   UserCheck,
   UserPlus,
@@ -39,7 +35,6 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
 import { Calendar as UiCalendar } from "@/components/ui/calendar"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -55,14 +50,19 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { useForm, Controller } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { addDays, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns"
+import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 
 // --- Sidebar ---
 const sidebarItems = [
+  {
+    title: "Inicio",
+    href: "/dashboard/parroco",
+    icon: Church,
+  }, 
   {
     title: "Registro de Administrador",
     href: "/dashboard/parroco/registro",
@@ -110,19 +110,19 @@ interface TimeSlot {
   available: boolean
 }
 
+// ✨ CORREGIDO: Usamos la estructura que me pasaste
 interface DocumentType {
   _id: string
-  name: string
+  document_type_name: string 
 }
 
-// Schema de Validación para el formulario DE AGENDAR
 const formSchema = z.object({
   documentNumber: z.string().min(5, "Documento requerido"),
   typeDocument: z.string({ required_error: "Debe seleccionar un tipo." }),
   name: z.string().min(2, "Nombre requerido"),
   lastName: z.string().min(2, "Apellido requerido"),
   mail: z.string().email("Email requerido"),
-  birthdate: z.string().date("Fecha requerida"),
+  birthdate: z.string().min(1, "Fecha requerida"),
   date: z.date({ required_error: "Debe seleccionar una fecha." }),
   time: z.string({ required_error: "Debe seleccionar una hora." }),
   intention: z.string().min(5, "La intención es requerida."),
@@ -130,17 +130,18 @@ const formSchema = z.object({
 
 type MassRequestFormValues = z.infer<typeof formSchema>
 
-// --- Página Principal ---
+function parseUTCDate(dateString: string): Date {
+  const date = new Date(dateString);
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
 export default function GestionSolicitudesMisa() {
-  // --- Estados para la TABLA DE APROBACIÓN ---
-  const [pendingMasses, setPendingMasses] = useState<SolicitudMisa[]>([])
+  // --- Estados ---
   const [confirmedMasses, setConfirmedMasses] = useState<SolicitudMisa[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false)
-  const [actionLoading, setActionLoading] = useState<Record<string, 'approve' | 'delete' | null>>({})
   const [viewingIntention, setViewingIntention] = useState<string | null>(null)
   
-  // --- Estados para el MODAL DE AGENDAR ---
+  // --- Estados Modal Agendar ---
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([])
   const [userExists, setUserExists] = useState(false)
@@ -151,91 +152,75 @@ export default function GestionSolicitudesMisa() {
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // --- Lógica de la TABLA DE APROBACIÓN ---
-  const fetchPendingMasses = async () => {
+  // --- Cargar Historial (Confirmadas) ---
+  const fetchConfirmedMasses = async () => {
     setIsLoading(true)
+    setConfirmedMasses([])
     try {
-      const res = await fetch(`${API_URL}/requestMass/earring`, { method: 'GET', credentials: 'include' })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Error al cargar misas pendientes") }
+      const res = await fetch(`${API_URL}/requestMass/confirmed`, {
+        method: "GET",
+        credentials: "include",
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Error al cargar misas confirmadas")
+      }
+  
       const data: SolicitudMisa[] = await res.json()
-      setPendingMasses(data)
+  
+      // Hoy a las 00:00 (para comparar solo por fecha)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+  
+      // Función que convierte fecha + hora de la misa en un timestamp
+      const getMassTimestamp = (misa: SolicitudMisa) => {
+        const date = parseUTCDate(misa.date) // solo la fecha
+        const [hours, minutes] = misa.time.split(":").map(Number)
+        date.setHours(hours || 0, minutes || 0, 0, 0)
+        return date.getTime()
+      }
+  
+      const upcoming = data
+        // 1️⃣ Solo misas desde hoy en adelante
+        .filter((misa) => parseUTCDate(misa.date) >= today)
+        // 2️⃣ Ordenar por fecha + hora (la más cercana primero)
+        .sort((a, b) => getMassTimestamp(a) - getMassTimestamp(b))
+  
+      setConfirmedMasses(upcoming)
     } catch (error: any) {
-      toast.error("Error al cargar pendientes", { description: error.message })
+      toast.error("Error al cargar historial", { description: error.message })
     } finally {
       setIsLoading(false)
     }
   }
-
-  const fetchConfirmedMasses = async () => {
-    setIsHistoryLoading(true)
-    setConfirmedMasses([]) 
-    try {
-      const res = await fetch(`${API_URL}/requestMass/confirmed`, { method: 'GET', credentials: 'include' })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Error al cargar misas confirmadas") }
-      const data: SolicitudMisa[] = await res.json()
-      setConfirmedMasses(data)
-    } catch (error: any) {
-      toast.error("Error al cargar historial", { description: error.message })
-    } finally {
-      setIsHistoryLoading(false)
-    }
-  }
+  
+  
 
   useEffect(() => {
-    fetchPendingMasses()
+    fetchConfirmedMasses()
   }, [])
-
-  const handleApproveMass = async (id: string) => {
-    setActionLoading(prev => ({ ...prev, [id]: 'approve' }))
-    try {
-      const res = await fetch(`${API_URL}/requestMass/confirm/${id}`, { method: 'POST', credentials: 'include' })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "No se pudo confirmar la misa") }
-      toast.success("Misa confirmada exitosamente")
-      fetchPendingMasses() 
-    } catch (error: any) {
-      toast.error("Error al confirmar", { description: error.message })
-    } finally {
-      setActionLoading(prev => ({ ...prev, [id]: null }))
-    }
-  }
-  
-  const handleDeleteMass = async (id: string) => {
-    setActionLoading(prev => ({ ...prev, [id]: 'delete' }))
-    try {
-      const res = await fetch(`${API_URL}/requestMass/${id}`, { method: 'DELETE', credentials: 'include' })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "No se pudo eliminar la solicitud") }
-      toast.success("Solicitud eliminada correctamente")
-      fetchPendingMasses() 
-    } catch (error: any) {
-      toast.error("Error al eliminar", { description: error.message })
-    } finally {
-      setActionLoading(prev => ({ ...prev, [id]: null }))
-    }
-  }
   
   const getApplicantName = (applicant: SolicitudMisa['applicant']) => {
-    if (!applicant) {
-      return <span className="text-muted-foreground italic">Usuario Eliminado</span>
-    }
+    if (!applicant) return <span className="text-muted-foreground italic">Usuario Eliminado</span>
     return `${applicant.name} ${applicant.lastName}`
   }
 
-  // --- Lógica del MODAL DE AGENDAR ---
+  // --- Lógica Modal Agendar ---
   const form = useForm<MassRequestFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { documentNumber: "", name: "", lastName: "", mail: "", birthdate: "", intention: "" },
   })
   const { setValue, trigger, getValues, control, watch, reset } = form
-  const selectedDate = watch("date")
+  const modalSelectedDate = watch("date") 
 
-  // Cargar Tipos de Documento al abrir el modal
   const onModalOpenChange = (open: boolean) => {
-    if (open && documentTypes.length === 0) { // Solo cargar una vez
+    if (open && documentTypes.length === 0) { 
       const fetchDocs = async () => {
           try {
             const res = await fetch(`${API_URL}/documentType/`, { credentials: "include" })
             if (!res.ok) throw new Error("Error al cargar tipos de documento")
             const data = await res.json()
+            // ✨ CORREGIDO: Usamos data?.data como en tu ejemplo
             setDocumentTypes(data?.data || [])
           } catch (e) {
             toast.error("No se pudieron cargar los tipos de documento");
@@ -244,7 +229,7 @@ export default function GestionSolicitudesMisa() {
         }
         fetchDocs()
     }
-    if (!open) { // Limpiar al cerrar
+    if (!open) { 
       reset()
       setUserExists(false)
       setAvailableTimes([])
@@ -264,6 +249,7 @@ export default function GestionSolicitudesMisa() {
         setValue("lastName", user.lastName);
         setValue("mail", user.mail);
         setValue("birthdate", format(new Date(user.birthdate), "yyyy-MM-dd"));
+        // Usamos el _id del tipo de documento
         setValue("typeDocument", user.typeDocument._id); 
         setUserExists(true); 
         toast.success("Usuario encontrado.", { icon: <UserCheck className="text-green-500" /> });
@@ -301,7 +287,7 @@ export default function GestionSolicitudesMisa() {
   useEffect(() => { fetchAvailableDays(currentMonth) }, [currentMonth])
 
   useEffect(() => {
-    if (!selectedDate) {
+    if (!modalSelectedDate) {
       setAvailableTimes([]);
       setValue("time", ""); 
       return;
@@ -311,7 +297,7 @@ export default function GestionSolicitudesMisa() {
       setAvailableTimes([]);
       setValue("time", ""); 
       try {
-        const dateString = format(selectedDate, "yyyy-MM-dd");
+        const dateString = format(modalSelectedDate, "yyyy-MM-dd");
         const res = await fetch(`${API_URL}/massSchedule/time-slots?date=${dateString}`, { credentials: 'include' });
         if (!res.ok) throw new Error("No se pudieron cargar los horarios.");
         const data = await res.json();
@@ -329,9 +315,8 @@ export default function GestionSolicitudesMisa() {
       }
     }
     fetchSlots();
-  }, [selectedDate, setValue]);
+  }, [modalSelectedDate, setValue]);
 
-  // Submit del formulario del modal
   const onSubmit = async (data: MassRequestFormValues) => {
     setIsSubmitting(true);
     const payload = { ...data, date: format(data.date, "yyyy-MM-dd") };
@@ -349,7 +334,8 @@ export default function GestionSolicitudesMisa() {
       reset();
       setUserExists(false);
       setAvailableTimes([]);
-      setIsCreateModalOpen(false); // Cierra el modal
+      setIsCreateModalOpen(false); 
+      fetchConfirmedMasses(); 
     } catch (error: any) {
       toast.error("Error al crear la solicitud", { description: error.message })
     } finally {
@@ -360,54 +346,15 @@ export default function GestionSolicitudesMisa() {
   return (
     <>
       <div className="flex h-screen bg-background">
-        <Sidebar items={sidebarItems} userRole="Párroco" />
+        <Sidebar items={sidebarItems} userRole="parroco" />
         <main className="flex-1 overflow-y-auto">
           <div className="p-6">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-foreground">Gestión de Solicitudes de Misa</h1>
-              <p className="text-muted-foreground">Confirma o elimina las solicitudes de misa de los feligreses.</p>
+              <h1 className="text-3xl font-bold text-foreground">Misas agendadas</h1>
+              <p className="text-muted-foreground">Agenda misas para feligreses y consulta el historial de misas confirmadas.</p>
             </div>
 
-            {/* --- Botones de Acción (Historial y Nuevo) --- */}
             <div className="flex justify-end mb-4 space-x-2">
-              <Dialog onOpenChange={(open) => {
-                if (open) fetchConfirmedMasses() 
-              }}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <History className="mr-2 h-4 w-4" />
-                    Ver Historial
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-4xl">
-                  {/* ... (Contenido del modal de Historial) ... */}
-                  <DialogHeader><DialogTitle>Historial de Misas Confirmadas</DialogTitle></DialogHeader>
-                  <div className="max-h-[60vh] overflow-y-auto">
-                    <Table>
-                      <TableHeader><TableRow><TableHead>Solicitante</TableHead><TableHead>Fecha</TableHead><TableHead>Hora</TableHead><TableHead>Intención</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader>
-                      <TableBody>
-                        {isHistoryLoading ? (
-                          <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Cargando...</TableCell></TableRow>
-                        ) : confirmedMasses.length > 0 ? (
-                          confirmedMasses.map((req) => (
-                            <TableRow key={req._id}>
-                              <TableCell>{getApplicantName(req.applicant)}</TableCell>
-                              <TableCell>{format(new Date(req.date), "dd/MM/yyyy")}</TableCell>
-                              <TableCell>{req.time}</TableCell>
-                              <TableCell className="truncate max-w-xs">{req.intention}</TableCell>
-                              <TableCell><Badge variant="success">Confirmada</Badge></TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow><TableCell colSpan={5} className="text-center">No hay misas confirmadas.</TableCell></TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              {/* --- ✨ ESTE ES EL NUEVO BOTÓN Y MODAL --- */}
               <Dialog open={isCreateModalOpen} onOpenChange={onModalOpenChange}>
                 <DialogTrigger asChild>
                   <Button>
@@ -419,24 +366,36 @@ export default function GestionSolicitudesMisa() {
                   <DialogHeader>
                     <DialogTitle>Agendar Nueva Misa (Asistida)</DialogTitle>
                     <DialogDescription>
-                      Completa los 3 pasos para agendar una misa para un feligrés no registrado o existente.
+                      Completa los 3 pasos para agendar una misa para un feligrés.
                     </DialogDescription>
                   </DialogHeader>
-                  {/* --- Aquí insertamos el formulario inteligente --- */}
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-h-[80vh] overflow-y-auto pr-4">
+                      {/* PASO 1 */}
                       <Card>
-                        <CardHeader>
-                          <CardTitle>Paso 1: Datos del Solicitante</CardTitle>
-                          <CardDescription>Busca por DNI o crea un nuevo registro de feligrés.</CardDescription>
-                        </CardHeader>
+                        <CardHeader><CardTitle>Paso 1: Datos del Solicitante</CardTitle><CardDescription>Busca por DNI o crea un nuevo registro.</CardDescription></CardHeader>
                         <CardContent className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField control={control} name="documentNumber" render={({ field }) => (
                               <FormItem><FormLabel>Número de Documento</FormLabel><div className="flex items-center space-x-2"><FormControl><Input placeholder="DNI..." {...field} onBlur={handleCheckUser} /></FormControl>{isCheckingUser && <Loader2 className="h-4 w-4 animate-spin" />}</div><FormMessage /></FormItem>
                             )} />
+                            
+                            {/* --- ✨ SELECT CORREGIDO --- */}
                             <FormField control={control} name="typeDocument" render={({ field }) => (
-                              <FormItem><FormLabel>Tipo de Documento</FormLabel><Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={userExists}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger></FormControl><SelectContent>{documentTypes.map((doc) => (<SelectItem key={doc._id} value={doc._id}>{doc.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>
+                              <FormItem><FormLabel>Tipo de Documento</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={userExists}>
+                                  <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger></FormControl>
+                                  <SelectContent>
+                                    {documentTypes.map((doc) => (
+                                      // Usamos document_type_name
+                                      <SelectItem key={doc._id} value={doc._id}>
+                                        {doc.document_type_name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
                             )} />
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -450,6 +409,7 @@ export default function GestionSolicitudesMisa() {
                         </CardContent>
                       </Card>
                       
+                      {/* PASO 2 */}
                       <Card>
                         <CardHeader><CardTitle>Paso 2: Fecha y Hora de la Misa</CardTitle></CardHeader>
                         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -461,8 +421,8 @@ export default function GestionSolicitudesMisa() {
                           <div className="space-y-4">
                             <Label>Horas Disponibles</Label>
                             {isLoadingTimes && <div className="flex items-center text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Cargando...</div>}
-                            {!isLoadingTimes && !selectedDate && <p className="text-sm text-muted-foreground">Selecciona un día.</p>}
-                            {!isLoadingTimes && selectedDate && availableTimes.length === 0 && <p className="text-sm text-destructive">No hay horas disponibles.</p>}
+                            {!isLoadingTimes && !modalSelectedDate && <p className="text-sm text-muted-foreground">Selecciona un día.</p>}
+                            {!isLoadingTimes && modalSelectedDate && availableTimes.length === 0 && <p className="text-sm text-destructive">No hay horas disponibles.</p>}
                             {availableTimes.length > 0 && (
                               <FormField control={control} name="time" render={({ field }) => (
                                 <FormItem><FormControl><ToggleGroup type="single" variant="outline" value={field.value} onValueChange={field.onChange} className="grid grid-cols-3 gap-2">{availableTimes.map((time) => (<ToggleGroupItem key={time} value={time}>{time}</ToggleGroupItem>))}</ToggleGroup></FormControl><FormMessage /></FormItem>
@@ -472,6 +432,7 @@ export default function GestionSolicitudesMisa() {
                         </CardContent>
                       </Card>
 
+                      {/* PASO 3 */}
                       <Card>
                         <CardHeader><CardTitle>Paso 3: Intención de la Misa</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -489,11 +450,11 @@ export default function GestionSolicitudesMisa() {
               </Dialog>
             </div>
 
-            {/* --- TABLA DE APROBACIÓN (La lógica original de tu .js) --- */}
+            {/* --- TABLA PRINCIPAL --- */}
             <Card>
               <CardHeader>
-                <CardTitle>Solicitudes de Misa Pendientes</CardTitle>
-                <CardDescription>Solicitudes enviadas por feligreses que esperan confirmación.</CardDescription>
+                <CardTitle>Historial de Misas Confirmadas</CardTitle>
+                <CardDescription>Misas que ya han sido confirmadas y pagadas.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -503,7 +464,7 @@ export default function GestionSolicitudesMisa() {
                       <TableHead>Fecha</TableHead>
                       <TableHead>Hora</TableHead>
                       <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
+                      <TableHead className="text-right">Intención</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -513,41 +474,27 @@ export default function GestionSolicitudesMisa() {
                           <Loader2 className="mr-2 h-4 w-4 animate-spin inline" /> Cargando...
                         </TableCell>
                       </TableRow>
-                    ) : pendingMasses.length > 0 ? (
-                      pendingMasses.map((req) => (
+                    ) : confirmedMasses.length > 0 ? (
+                      confirmedMasses.map((req) => (
                         <TableRow key={req._id}>
                           <TableCell className="font-medium">{getApplicantName(req.applicant)}</TableCell>
-                          <TableCell>{format(new Date(req.date), "dd/MM/yyyy")}</TableCell>
+                          <TableCell>{format(parseUTCDate(req.date), "dd/MM/yyyy")}</TableCell>
                           <TableCell>{req.time}</TableCell>
-                          <TableCell><Badge variant="outline">{req.status}</Badge></TableCell>
-                          <TableCell className="text-right space-x-2">
+                          <TableCell>
+                            <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                              {req.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
                             <Button variant="outline" size="sm" onClick={() => setViewingIntention(req.intention)}>
                               <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="default" 
-                              onClick={() => handleApproveMass(req._id)}
-                              disabled={!!actionLoading[req._id]}
-                            >
-                              {actionLoading[req._id] === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                              Confirmar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeleteMass(req._id)}
-                              disabled={!!actionLoading[req._id]}
-                            >
-                              {actionLoading[req._id] === 'delete' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                              Eliminar
                             </Button>
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center">No hay solicitudes pendientes.</TableCell>
+                        <TableCell colSpan={5} className="text-center">No hay misas confirmadas.</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -558,7 +505,7 @@ export default function GestionSolicitudesMisa() {
         </main>
       </div>
 
-      {/* --- MODAL PARA VER INTENCIÓN (de la tabla) --- */}
+      {/* --- MODAL PARA VER INTENCIÓN --- */}
       <Dialog open={!!viewingIntention} onOpenChange={(isOpen) => !isOpen && setViewingIntention(null)}>
         <DialogContent>
           <DialogHeader>
