@@ -25,13 +25,14 @@ export function middleware(request: NextRequest) {
 
   console.log("🔐 Middleware ejecutándose en:", pathname)
 
-  // 🔹 Rutas de API públicas (sin autenticación)
+  // ✅ RUTAS DE API PÚBLICAS (sin autenticación)
   const publicApiPaths = [
     "/api/login",
     "/api/logout", 
     "/api/register",
     "/api/test-backend",
-    "/api/health"
+    "/api/health",
+    "/api/payment/confirm"  // ✅ WEBHOOK DE MERCADO PAGO
   ]
   
   const isApiPath = pathname.startsWith("/api/")
@@ -73,7 +74,7 @@ export function middleware(request: NextRequest) {
 
   const isAuthenticated = !!(dbRole && jwt)
 
-  // 🔹 Rutas públicas (páginas)
+  // ✅ RUTAS PÚBLICAS (páginas)
   const publicPaths = [
     "/",
     "/login",
@@ -91,6 +92,7 @@ export function middleware(request: NextRequest) {
   )
 
   // ✅ CASO 1: Usuario autenticado en rutas públicas → Redirigir a dashboard
+  // EXCEPTO: "/" y "/payment/response"
   if (isPublicPath && isAuthenticated && pathname !== "/" && pathname !== "/payment/response") {
     console.log("✅ Usuario autenticado en ruta pública, redirigiendo a dashboard...")
     const mappedRole = roleMapping[dbRole] || dbRole
