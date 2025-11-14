@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { ClipboardList, Calendar, History, Church, Loader2, BookOpen, Heart, Cross, CheckCircle2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import Script from "next/script"
 
 const sidebarItems = [
   {
@@ -61,12 +60,6 @@ const partidaTypes = [
   },
 ]
 
-declare global {
-  interface Window {
-    ePayco: any;
-  }
-}
-
 interface ExistingRequest {
   _id: string;
   status: string;
@@ -77,7 +70,6 @@ export default function SolicitudPartidaFeligres() {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
   const [checkingStates, setCheckingStates] = useState<Record<string, boolean>>({})
   const [existingRequests, setExistingRequests] = useState<Record<string, ExistingRequest | null>>({})
-  const [epaycoLoaded, setEpaycoLoaded] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [selectedPartida, setSelectedPartida] = useState<{ type: string; price: number; hasRequest: boolean; requestId?: string } | null>(null)
   const [phoneNumber, setPhoneNumber] = useState("")
@@ -143,124 +135,38 @@ export default function SolicitudPartidaFeligres() {
     }
   }
 
-  // 🔥 FUNCIÓN CORREGIDA PARA STANDARD CHECKOUT
-  const openEpaycoCheckout = (epaycoData: any) => {
-    console.log("💳 Iniciando apertura de checkout ePayco...")
-    console.log("📦 Datos recibidos del backend:", JSON.stringify(epaycoData, null, 2))
+  // 💳 FUNCIÓN PARA REDIRIGIR A MERCADO PAGO
+  const openMercadoPagoCheckout = (checkout: { init_point?: string; sandbox_init_point?: string; preferenceId?: string }) => {
+    console.log("💳 Iniciando redirección a Mercado Pago...")
+    console.log("📦 Datos recibidos del backend:", JSON.stringify(checkout, null, 2))
 
-    // ✅ VALIDACIÓN 1: Script cargado
-    if (typeof window.ePayco === 'undefined') {
-      console.error('❌ El script de ePayco no está cargado')
-      toast.error('Error al cargar el sistema de pagos', {
-        description: 'Por favor, recarga la página e intenta de nuevo.'
+    if (!checkout || (!checkout.init_point && !checkout.sandbox_init_point)) {
+      console.error('❌ No se recibió URL de checkout de Mercado Pago')
+      toast.error('Error al obtener la URL de pago', {
+        description: 'No se pudo obtener el enlace de pago. Intenta de nuevo.',
+        duration: 4000
       })
       return
     }
 
-    // ✅ VALIDACIÓN 2: Verificar ambas claves
-    const custIdCliente = epaycoData.EPAYCO_P_CUST_ID_CLIENTE
-    const publicKey = epaycoData.EPAYCO_P_PUBLIC_KEY
-    
-    if (!custIdCliente || String(custIdCliente).trim() === '') {
-      console.error('❌ EPAYCO_P_CUST_ID_CLIENTE vacío o inválido:', custIdCliente)
-      toast.error('Error de configuración', {
-        description: 'El ID de cliente de ePayco no fue recibido correctamente.'
-      })
-      return
-    }
+    // Preferir init_point, fallback a sandbox_init_point
+    const checkoutUrl = checkout.init_point || checkout.sandbox_init_point
 
-    if (!publicKey || String(publicKey).trim() === '') {
-      console.error('❌ EPAYCO_P_PUBLIC_KEY vacía o inválida:', publicKey)
-      toast.error('Error de configuración', {
-        description: 'La clave pública de ePayco no fue recibida correctamente.'
-      })
-      return
-    }
+    console.log("🔗 URL de checkout:", checkoutUrl)
+    console.log("🆔 Preference ID:", checkout.preferenceId)
 
     try {
-      console.log("🔑 EPAYCO_P_CUST_ID_CLIENTE:", custIdCliente)
-      console.log("🔑 EPAYCO_P_PUBLIC_KEY:", publicKey.substring(0, 10) + '...')
-      console.log("🧪 Modo de prueba:", epaycoData.test)
-
-      // ✅ CONFIGURAR HANDLER - Usar PUBLIC_KEY (no CUST_ID)
-      const handler = window.ePayco.checkout.configure({
-        key: String(publicKey).trim(), // ⚠️ USAR PUBLIC_KEY AQUÍ
-        test: epaycoData.test === 'true' || epaycoData.test === true
-      })
-
-      console.log('ℹ️ Handler configurado correctamente')
-
-      // ✅ PREPARAR DATOS LIMPIOS PARA STANDARD CHECKOUT
-      const checkoutData = {
-        // Información básica del pago
-        name: String(epaycoData.name || 'Certificado').trim(),
-        description: String(epaycoData.description || 'Pago por certificado').trim(),
-        invoice: String(epaycoData.invoice).trim(),
-        currency: 'cop',
-        amount: String(epaycoData.amount).replace(/[^\d]/g, ''),
-        tax_base: '0',
-        tax: '0',
-        country: 'co',
-        lang: 'es',
-
-        // URLs de respuesta (VALIDADAS)
-        response: String(epaycoData.responseUrl || epaycoData.response).trim(),
-        confirmation: String(epaycoData.confirmationUrl || epaycoData.confirmation).trim(),
-
-        // Datos de facturación LIMPIOS Y VALIDADOS
-        name_billing: String(epaycoData.name_billing || 'Usuario').trim(),
-        email_billing: String(epaycoData.email_billing || '').trim(),
-        address_billing: String(epaycoData.address_billing || 'N/A').trim().substring(0, 100),
-        type_doc_billing: String(epaycoData.type_doc_billing || 'CC').trim(),
-        mobilephone_billing: String(epaycoData.mobilephone_billing || '').replace(/[^\d]/g, '').substring(0, 10),
-        number_doc_billing: String(epaycoData.number_doc_billing || '').replace(/[^\d]/g, ''),
-
-        // Extras (OPCIONALES pero validados)
-        extra1: String(epaycoData.extra1 || '').trim(),
-        extra2: String(epaycoData.extra2 || '').trim(),
-        extra3: String(epaycoData.extra3 || '').trim(),
-      }
-
-      // ⚠️ VALIDACIÓN CRÍTICA: Verificar campos obligatorios
-      const requiredFields: (keyof typeof checkoutData)[] = [
-        'name', 'description', 'invoice', 'amount', 
-        'response', 'confirmation', 
-        'name_billing', 'email_billing', 'mobilephone_billing', 'number_doc_billing'
-      ]
-
-      for (const field of requiredFields) {
-        if (!checkoutData[field] || checkoutData[field] === '') {
-          console.error(`❌ Campo requerido vacío: ${field}`)
-          toast.error('Error en los datos del pago', {
-            description: `El campo ${field} no puede estar vacío. Por favor contacta a soporte.`
-          })
-          return
-        }
-      }
-
-      console.log("✅ Datos preparados y validados para checkout:", JSON.stringify(checkoutData, null, 2))
-
-      // ✅ ABRIR CHECKOUT
-      console.log("🚀 Abriendo checkout con handler.open()...")
+      // Redirigir en la misma pestaña para que el webhook y return_url funcionen correctamente
+      console.log("🚀 Redirigiendo a Mercado Pago...")
+      window.location.href = checkoutUrl!
       
-      if (typeof handler.open !== 'function') {
-        console.error('❌ handler.open() no está disponible')
-        console.error('Tipo de handler:', typeof handler)
-        console.error('Métodos disponibles:', Object.keys(handler || {}))
-        throw new Error('El método open() no está disponible en el handler de ePayco')
-      }
-
-      handler.open(checkoutData)
-      console.log('✅ Checkout abierto exitosamente')
-
+      // Alternativa: abrir en nueva pestaña (menos recomendado para el flujo de pago)
+      // window.open(checkoutUrl!, '_blank')
+      
     } catch (error: any) {
-      console.error('❌ Error al abrir checkout de ePayco:', error)
-      console.error('Stack trace:', error instanceof Error ? error.stack : 'Sin stack disponible')
-      
+      console.error('❌ Error al redirigir a Mercado Pago:', error)
       toast.error('Error al abrir la pasarela de pago', {
-        description: error instanceof Error 
-          ? error.message 
-          : 'Error desconocido. Por favor, intenta de nuevo o contacta a soporte.',
+        description: 'Ocurrió un error al intentar redirigirte. Por favor, intenta de nuevo.',
         duration: 5000
       })
     }
@@ -344,16 +250,19 @@ export default function SolicitudPartidaFeligres() {
       const paymentData = await paymentResponse.json()
       console.log('✅ Pago creado exitosamente:', paymentData)
       
-      if (!paymentData.success || !paymentData.epaycoData) {
-        throw new Error('No se recibieron los datos de pago del servidor')
+      // Validar que se recibió la respuesta correcta de Mercado Pago
+      if (!paymentData.success || !paymentData.checkout?.init_point) {
+        throw new Error('No se recibió la URL de pago del servidor')
       }
 
-      toast.success("Abriendo pasarela de pago...", {
+      toast.success("Redirigiendo a Mercado Pago...", {
+        description: `El pago expira en ${paymentData.payment?.expiresInMinutes || 2} minutos.`,
         duration: 2000,
       })
 
+      // Pequeño delay para que el usuario vea el toast
       setTimeout(() => {
-        openEpaycoCheckout(paymentData.epaycoData)
+        openMercadoPagoCheckout(paymentData.checkout)
       }, 500)
 
     } catch (error: any) {
@@ -459,17 +368,20 @@ export default function SolicitudPartidaFeligres() {
       const paymentData = await paymentResponse.json()
       console.log('✅ Respuesta del pago:', paymentData)
       
-      if (!paymentData.success || !paymentData.epaycoData) {
-        throw new Error('No se recibieron los datos de pago')
+      // Validar que se recibió la respuesta correcta de Mercado Pago
+      if (!paymentData.success || !paymentData.checkout?.init_point) {
+        throw new Error('No se recibió la URL de pago del servidor')
       }
 
-      console.log("🌐 Paso 3: Abriendo checkout de ePayco...")
-      toast.success("Abriendo pasarela de pago...", {
+      console.log("🌐 Paso 3: Redirigiendo a Mercado Pago...")
+      toast.success("Redirigiendo a Mercado Pago...", {
+        description: `El pago expira en ${paymentData.payment?.expiresInMinutes || 2} minutos.`,
         duration: 2000,
       })
 
+      // Pequeño delay para que el usuario vea el toast
       setTimeout(() => {
-        openEpaycoCheckout(paymentData.epaycoData)
+        openMercadoPagoCheckout(paymentData.checkout)
       }, 500)
 
     } catch (error: any) {
@@ -485,21 +397,6 @@ export default function SolicitudPartidaFeligres() {
 
   return (
     <>
-      <Script
-        src="https://checkout.epayco.co/checkout.js"
-        strategy="afterInteractive"
-        onLoad={() => {
-          console.log("✅ Script de ePayco cargado correctamente")
-          setEpaycoLoaded(true)
-        }}
-        onError={(e) => {
-          console.error("❌ Error al cargar script de ePayco:", e)
-          toast.error("Error al cargar el sistema de pagos", {
-            description: "Por favor, recarga la página."
-          })
-        }}
-      />
-
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -583,14 +480,6 @@ export default function SolicitudPartidaFeligres() {
             <p className="text-muted-foreground">Selecciona el tipo de partida sacramental que deseas solicitar y procede con el pago.</p>
           </div>
 
-          {!epaycoLoaded && (
-            <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                ⏳ Cargando sistema de pagos...
-              </p>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {partidaTypes.map((partida) => {
               const isLoading = loadingStates[partida.type] || false
@@ -643,7 +532,7 @@ export default function SolicitudPartidaFeligres() {
                       className="w-full"
                       variant={hasRequest ? "default" : "default"}
                       onClick={() => handleOpenModal(partida.type, partida.price)}
-                      disabled={isLoading || !epaycoLoaded || isChecking}
+                      disabled={isLoading || isChecking}
                     >
                       {isLoading ? (
                         <>
@@ -655,8 +544,6 @@ export default function SolicitudPartidaFeligres() {
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Verificando...
                         </>
-                      ) : !epaycoLoaded ? (
-                        "Cargando sistema de pagos..."
                       ) : hasRequest ? (
                         "💳 Solo Pagar"
                       ) : (
@@ -674,8 +561,8 @@ export default function SolicitudPartidaFeligres() {
               <CardTitle className="text-lg">ℹ️ Información Importante</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground space-y-2">
-              <p>• El pago se realiza a través de ePayco de forma segura.</p>
-              <p>• Los pagos pendientes expiran después de 30 minutos de inactividad.</p>
+              <p>• El pago se realiza a través de Mercado Pago de forma segura.</p>
+              <p>• Los pagos pendientes expiran después de 2 minutos de inactividad.</p>
               <p>• Si ya tienes una solicitud creada, solo necesitas realizar el pago.</p>
               <p>• Una vez confirmado el pago, tu solicitud será procesada.</p>
               <p>• Recibirás el documento en tu correo electrónico registrado.</p>

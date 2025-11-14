@@ -14,12 +14,16 @@ interface PaymentData {
   status: string
   amount: number
   referenceCode: string
-  epaycoData?: {
-    responseMessage?: string
-    franchise?: string
-    bank?: string
-    authorization?: string
-    responseCode?: string
+  transactionId?: string
+  gatewayData?: {
+    id?: string
+    preference?: {
+      id?: string
+    }
+    status?: string
+    status_detail?: string
+    payment_method_id?: string
+    payment_type_id?: string
   }
   confirmedAt?: string
   serviceType?: string
@@ -35,20 +39,22 @@ export default function PaymentResponsePage() {
   const [pollingCount, setPollingCount] = useState(0)
   const [isPolling, setIsPolling] = useState(false)
 
-  // Extraer referencia de la URL (puede venir como 'invoice' o 'x_id_invoice')
-  const invoice = searchParams.get('invoice') || searchParams.get('x_id_invoice')
+  // Extraer referencia de la URL (puede venir como 'invoice', 'x_id_invoice' o 'external_reference')
+  const invoice = searchParams.get('invoice') || 
+                  searchParams.get('x_id_invoice') || 
+                  searchParams.get('external_reference')
   
-  // Otros parámetros que envía ePayco (solo para logs, NO para confiar en ellos)
-  const x_cod_response = searchParams.get('x_cod_response')
-  const x_response = searchParams.get('x_response')
-  const ref_payco = searchParams.get('ref_payco')
+  // Parámetros adicionales de Mercado Pago
+  const collection_status = searchParams.get('collection_status')
+  const payment_id = searchParams.get('payment_id')
+  const preference_id = searchParams.get('preference_id')
 
   useEffect(() => {
-    console.log("📋 Parámetros recibidos de ePayco:", {
+    console.log("📋 Parámetros recibidos:", {
       invoice,
-      x_cod_response,
-      x_response,
-      ref_payco,
+      collection_status,
+      payment_id,
+      preference_id,
       allParams: Object.fromEntries(searchParams.entries())
     })
 
@@ -189,16 +195,22 @@ export default function PaymentResponsePage() {
                     ${paymentData?.amount.toLocaleString('es-CO')} COP
                   </span>
                 </div>
-                {paymentData?.epaycoData?.franchise && (
+                {paymentData?.transactionId && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-muted-foreground">Franquicia:</span>
-                    <span className="text-sm font-semibold">{paymentData.epaycoData.franchise}</span>
+                    <span className="text-sm font-medium text-muted-foreground">ID Transacción:</span>
+                    <span className="font-mono text-sm">{paymentData.transactionId}</span>
                   </div>
                 )}
-                {paymentData?.epaycoData?.authorization && (
+                {paymentData?.gatewayData?.preference?.id && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-muted-foreground">Autorización:</span>
-                    <span className="font-mono text-sm">{paymentData.epaycoData.authorization}</span>
+                    <span className="text-sm font-medium text-muted-foreground">Preference ID:</span>
+                    <span className="text-sm font-semibold">{paymentData.gatewayData.preference.id}</span>
+                  </div>
+                )}
+                {paymentData?.gatewayData?.payment_method_id && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-muted-foreground">Método de Pago:</span>
+                    <span className="text-sm font-semibold uppercase">{paymentData.gatewayData.payment_method_id}</span>
                   </div>
                 )}
                 {paymentData?.confirmedAt && (
@@ -262,11 +274,17 @@ export default function PaymentResponsePage() {
                   <span className="text-sm font-medium text-muted-foreground">Referencia:</span>
                   <span className="font-mono text-sm">{paymentData?.referenceCode}</span>
                 </div>
-                {paymentData?.epaycoData?.responseMessage && (
+                {paymentData?.transactionId && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-muted-foreground">Motivo:</span>
+                    <span className="text-sm font-medium text-muted-foreground">ID Transacción:</span>
+                    <span className="font-mono text-sm">{paymentData.transactionId}</span>
+                  </div>
+                )}
+                {paymentData?.gatewayData?.status_detail && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-muted-foreground">Detalle:</span>
                     <span className="text-sm text-red-700 dark:text-red-400 font-semibold">
-                      {paymentData.epaycoData.responseMessage}
+                      {paymentData.gatewayData.status_detail}
                     </span>
                   </div>
                 )}
@@ -332,6 +350,12 @@ export default function PaymentResponsePage() {
                     Procesando...
                   </Badge>
                 </div>
+                {paymentData?.transactionId && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-muted-foreground">ID Transacción:</span>
+                    <span className="font-mono text-sm">{paymentData.transactionId}</span>
+                  </div>
+                )}
               </div>
 
               {isPolling && (
@@ -345,7 +369,7 @@ export default function PaymentResponsePage() {
                 <p className="text-sm text-blue-800 dark:text-blue-200">
                   <strong>ℹ️ Información:</strong>
                   <br />
-                  Tu pago está siendo validado por la entidad bancaria. Esto puede tomar unos minutos.
+                  Tu pago está siendo validado por Mercado Pago. Esto puede tomar unos minutos.
                   <br />
                   <br />
                   Si el estado no cambia, puedes verificarlo más tarde en tu historial de pagos.
@@ -405,7 +429,7 @@ export default function PaymentResponsePage() {
                 <p className="text-sm text-blue-800 dark:text-blue-200">
                   <strong>💡 ¿Qué pasó?</strong>
                   <br />
-                  Los pagos pendientes expiran después de 30 minutos de inactividad.
+                  Los pagos pendientes expiran después de 2 minutos de inactividad.
                   Puedes crear una nueva solicitud de pago para continuar.
                 </p>
               </div>
